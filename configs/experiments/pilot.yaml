@@ -1,0 +1,15 @@
+# Phase 2 pilot: (a) does cross-domain few-shot beat zero-shot, and
+# (b) do relevant examples shift routing on target-question tokens more than
+# irrelevant ones?
+name: pilot
+model_config: configs/models/olmoe.yaml
+pairs_config: configs/pairs/mmlu_pilot.yaml
+seed: 0
+num_shots: 5                  # placeholder; see design_decisions.md
+num_questions_per_target: 100 # placeholder; see design_decisions.md
+conditions: [zero_shot, cross_domain, same_domain, irrelevant]
+prompts_dir: data/prompts/pilot
+output_dir: results/pilot
+options:
+  record_routing: true        # record top-k routing on target-question tokens
+  jaccard_per_layer: true

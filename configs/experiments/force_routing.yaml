@@ -1,0 +1,18 @@
+# Phase 3 main experiment: run the few-shot prompt, but force zero-shot routing
+# on the target-question tokens. Metric: fraction of gain retained
+# = (forced - zero_shot) / (few_shot - zero_shot).
+name: force_routing
+model_config: configs/models/olmoe.yaml
+pairs_config: configs/pairs/mmlu_pilot.yaml
+seed: 0
+num_shots: 5
+num_questions_per_target: 200
+conditions: [zero_shot, cross_domain]     # few-shot condition(s) to decompose
+prompts_dir: data/prompts/main
+output_dir: results/force_routing
+options:
+  force_scope: target_question_tokens     # example tokens route naturally
+  force_mixing_weights: false             # false = selection only (open decision)
+  layers: null                            # null = all layers; Phase 4 sweeps subsets
+  sanity_identity_check: true             # force zero-shot routing on zero-shot prompt
+  sanity_random_check: true               # force random experts; accuracy should drop

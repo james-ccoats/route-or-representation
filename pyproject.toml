@@ -1,0 +1,39 @@
+[project]
+name = "rr"
+version = "0.1.0"
+description = "Route or representation? Decomposing few-shot transfer gains in MoE language models."
+readme = "README.md"
+authors = [
+    { name = "james-ccoats", email = "jamescoats2023@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "datasets>=5.1.0",
+    "matplotlib>=3.11.2",
+    "numpy>=2.4.6",
+    "pyyaml>=6.0.3",
+    "torch>=2.15.0",
+    "tqdm>=4.70.1",
+    "transformers>=5.22.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.4.0",
+    "pytest>=9.2.0",
+    "ruff>=0.17.3",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

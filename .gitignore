@@ -1,0 +1,29 @@
+# Data and results (directories kept via .gitkeep)
+data/raw/*
+!data/raw/.gitkeep
+results/*
+!results/.gitkeep
+
+# Hugging Face caches and model weights
+.cache/
+hf_cache/
+huggingface/
+*.safetensors
+*.bin
+*.gguf
+
+# Python environment and build artifacts
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS
+.DS_Store

@@ -1,0 +1,20 @@
+# Model config for OLMoE-1B-7B (Phase 0 starting model).
+name: allenai/OLMoE-1B-7B-0924
+revision: null          # pin a commit hash here once the model is first downloaded
+dtype: bfloat16         # one of: float32, float16, bfloat16
+device: auto            # one of: auto, cpu, cuda, mps
+
+# ---------------------------------------------------------------------------
+# UNVERIFIED architecture values.
+# The numbers below are placeholders taken from the model card. Layer count,
+# expert count, top-k, and router module names MUST be verified in Phase 0 by
+# inspecting the loaded model (see rr.models.inspect_moe_structure and
+# scripts/00_smoke_test.py), NOT assumed. Update this file with what is found.
+# ---------------------------------------------------------------------------
+architecture:
+  num_layers: 16
+  num_experts: 64
+  top_k: 8
+  # Format string; {layer} is replaced by the layer index. Check against
+  # model.named_modules() -- module names can change across transformers versions.
+  router_module_pattern: "model.layers.{layer}.mlp.gate"

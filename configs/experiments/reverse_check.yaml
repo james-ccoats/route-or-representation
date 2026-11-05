@@ -1,0 +1,16 @@
+# Phase 3 reverse check: run the zero-shot prompt with few-shot routing forced
+# in on the target-question tokens. Metric: fraction of gain recovered
+# = (forced - zero_shot) / (few_shot - zero_shot).
+name: reverse_check
+model_config: configs/models/olmoe.yaml
+pairs_config: configs/pairs/mmlu_pilot.yaml
+seed: 0
+num_shots: 5
+num_questions_per_target: 200
+conditions: [zero_shot, cross_domain]
+prompts_dir: data/prompts/main
+output_dir: results/reverse_check
+options:
+  force_scope: target_question_tokens
+  force_mixing_weights: false
+  layers: null
