@@ -66,8 +66,17 @@ def format_mc_prompt(
         Target blocks must be byte-identical across conditions so token
         alignment (:mod:`rr.routing.align`) is exact.
     """
-    # TODO(Phase 0): "Question: ...\nA. ...\nB. ...\nAnswer:" (+ " X" if include_answer).
-    raise NotImplementedError("TODO(Phase 0): format a question block")
+    if len(option_labels) != len(question.choices):
+        raise ValueError(
+            f"got {len(option_labels)} option labels for {len(question.choices)} choices"
+        )
+    option_lines = [
+        f"{label}. {choice}" for label, choice in zip(option_labels, question.choices, strict=True)
+    ]
+    block = "\n".join([f"Question: {question.question}", *option_lines, "Answer:"])
+    if include_answer:
+        return f"{block} {option_labels[question.answer_index]}"
+    return block
 
 
 def score_mc(

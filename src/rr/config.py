@@ -30,6 +30,11 @@ VALID_DEVICES = ("auto", "cpu", "cuda", "mps")
 VALID_DISTANCES = ("near", "medium", "far")
 
 
+# The irrelevant control draws from subjects that are never eval targets, so it can use
+# the large test split without overlapping any evaluated question.
+DEFAULT_IRRELEVANT_SPLIT = "test"
+
+
 class ConfigError(ValueError):
     """Raised when a config file is missing, malformed, or fails validation."""
 
@@ -79,6 +84,7 @@ class PairsConfig:
     run_both_directions: bool
     pairs: tuple[DomainPair, ...]
     irrelevant_subjects: tuple[str, ...]
+    irrelevant_split: str = DEFAULT_IRRELEVANT_SPLIT
 
     def directions(self) -> tuple[tuple[str, str, str], ...]:
         """Return ``(pair_name, source_subject, target_subject)`` for every run.
@@ -215,16 +221,34 @@ def load_pairs_config(path: str | Path) -> PairsConfig:
     names = [p.name for p in pairs]
     if len(set(names)) != len(names):
         raise ConfigError(f"{where}: pair names must be unique, got {names}")
-    irrelevant = data.get("irrelevant_pool", {}).get("subjects", [])
+    pool_data = data.get("irrelevant_pool", {})
+    irrelevant = pool_data.get("subjects", [])
+    irrelevant_split = pool_data.get("split", DEFAULT_IRRELEVANT_SPLIT)
+    if not isinstance(irrelevant_split, str):
+        raise ConfigError(f"{where}: 'irrelevant_pool.split' must be a string")
     if not isinstance(irrelevant, list) or not all(isinstance(s, str) for s in irrelevant):
         raise ConfigError(f"{where}: 'irrelevant_pool.subjects' must be a list of strings")
+    pair_domains = {d for p in pairs for d in (p.domain_a, p.domain_b)}
+    overlap = sorted(pair_domains.intersection(irrelevant))
+    if overlap:
+        raise ConfigError(
+            f"{where}: irrelevant_pool subjects must not be pair domains, got {overlap}"
+        )
+    shot_split = _get(data, "shot_split", str, where)
+    eval_split = _get(data, "eval_split", str, where)
+    if shot_split == eval_split:
+        raise ConfigError(
+            f"{where}: shot_split and eval_split must differ (both are {shot_split!r}) "
+            "so shot questions can never be evaluated"
+        )
     return PairsConfig(
         dataset=_get(data, "dataset", str, where),
-        shot_split=_get(data, "shot_split", str, where),
-        eval_split=_get(data, "eval_split", str, where),
+        shot_split=shot_split,
+        eval_split=eval_split,
         run_both_directions=_get(data, "run_both_directions", bool, where),
         pairs=tuple(pairs),
         irrelevant_subjects=tuple(irrelevant),
+        irrelevant_split=irrelevant_split,
     )
 
 

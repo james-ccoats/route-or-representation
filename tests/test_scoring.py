@@ -2,11 +2,29 @@
 
 import pytest
 
+from rr.data import MCQuestion
+from rr.scoring import format_mc_prompt
 
-@pytest.mark.skip(reason="Phase 0: not implemented yet")
+
 def test_format_mc_prompt_ends_with_answer_cue() -> None:
-    """Target-style blocks end with the "Answer:" cue and list every option label;
-    with include_answer=True the correct label follows the cue instead."""
+    question = MCQuestion("toy", "What is 2 + 2?", ("3", "4", "5", "6"), 1)
+
+    block = format_mc_prompt(question)
+
+    assert block == "Question: What is 2 + 2?\nA. 3\nB. 4\nC. 5\nD. 6\nAnswer:"
+
+
+def test_format_mc_prompt_with_answer_appends_correct_label() -> None:
+    question = MCQuestion("toy", "What is 2 + 2?", ("3", "4", "5", "6"), 1)
+
+    assert format_mc_prompt(question, include_answer=True).endswith("\nAnswer: B")
+
+
+def test_format_mc_prompt_rejects_label_count_mismatch() -> None:
+    question = MCQuestion("toy", "Q?", ("x", "y"), 0)
+
+    with pytest.raises(ValueError, match="labels"):
+        format_mc_prompt(question)
 
 
 @pytest.mark.skip(reason="Phase 0: not implemented yet")

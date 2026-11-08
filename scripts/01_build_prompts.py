@@ -3,6 +3,8 @@
 Usage: uv run python scripts/01_build_prompts.py --config configs/experiments/pilot.yaml
 """
 
+from transformers import AutoTokenizer
+
 from rr.config import (
     load_experiment_config,
     load_model_config,
@@ -10,20 +12,24 @@ from rr.config import (
     parse_config_arg,
 )
 from rr.data import load_mmlu_subject, sample_questions
-from rr.models import load_model
-from rr.prompts import build_condition_prompts, save_prompts
+from rr.prompts import (
+    build_condition_prompts,
+    count_example_tokens,
+    save_prompts,
+    select_irrelevant_examples,
+    verify_target_tokens,
+)
 
 
 def main() -> None:
     cfg = load_experiment_config(parse_config_arg(__doc__ or ""))
     pairs = load_pairs_config(cfg.pairs_config)
     model_cfg = load_model_config(cfg.model_config)
-    # Only the tokenizer is needed here; TODO(Phase 1): load the tokenizer alone
-    # (AutoTokenizer) instead of the full model.
-    _, tokenizer = load_model(model_cfg.name, model_cfg.dtype, model_cfg.device)
+    # Only the tokenizer is needed to build and length-match prompts, not the weights.
+    tokenizer = AutoTokenizer.from_pretrained(model_cfg.name, revision=model_cfg.revision)
 
     irrelevant_pool = [
-        q for s in pairs.irrelevant_subjects for q in load_mmlu_subject(s, pairs.shot_split)
+        q for s in pairs.irrelevant_subjects for q in load_mmlu_subject(s, pairs.irrelevant_split)
     ]
     for run_name, source, target in pairs.directions():
         source_shots = sample_questions(
@@ -38,19 +44,28 @@ def main() -> None:
             cfg.seed,
             exclude=target_shots,
         )
-        prompts = [
-            p
-            for q in eval_qs
-            for p in build_condition_prompts(
-                q,
-                source_examples=source_shots,
-                same_domain_examples=target_shots,
-                irrelevant_pool=irrelevant_pool,
-                conditions=cfg.conditions,
-                tokenizer=tokenizer,
-                seed=cfg.seed,
-            ).values()
-        ]
+        # The control depends only on the source shots, so select it once per direction.
+        irrelevant_shots = select_irrelevant_examples(
+            irrelevant_pool,
+            len(source_shots),
+            count_example_tokens(source_shots, tokenizer),
+            tokenizer,
+            cfg.seed,
+        )
+        prompts = []
+        for question in eval_qs:
+            built = list(
+                build_condition_prompts(
+                    question,
+                    source_examples=source_shots,
+                    same_domain_examples=target_shots,
+                    irrelevant_examples=irrelevant_shots,
+                    conditions=cfg.conditions,
+                    tokenizer=tokenizer,
+                ).values()
+            )
+            verify_target_tokens(built, tokenizer)
+            prompts.extend(built)
         save_prompts(prompts, cfg.prompts_dir / f"{run_name.replace(':', '_')}.jsonl")
 
 

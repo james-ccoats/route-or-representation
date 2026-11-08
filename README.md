@@ -33,9 +33,6 @@ distance. These are hypotheses, not results; see
 | 3 | Main experiment: forced routing, reverse check, sanity checks | not started |
 | 4 | Extensions: layer-by-layer forcing, second MoE model, distance/direction | not started |
 
-Only the repository scaffolding exists. Apart from `rr.config` and
-`rr.analysis`, modules are documented skeletons that raise `NotImplementedError`.
-No model weights or datasets have been downloaded.
 
 ## Quickstart
 
@@ -43,7 +40,7 @@ Requires [uv](https://docs.astral.sh/uv/) and Python 3.11+.
 
 ```bash
 uv sync                      # create .venv and install dependencies
-uv run pytest                # run tests (unimplemented features are skipped)
+uv run pytest                # run tests
 uv run ruff check .          # lint
 
 # Phase 0 smoke test (will stop at NotImplementedError until Phase 0 is built)
@@ -81,4 +78,4 @@ data/ results/ figures/ notebooks/ paper/   working directories (contents gitign
 ## Conventions
 
 Python 3.11+, `src/` layout, package name `rr`. All dependencies are managed
-with uv (`uv add`, `uv sync`, `uv run`); `uv.lock` is committed.
+with uv.

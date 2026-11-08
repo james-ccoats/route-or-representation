@@ -133,3 +133,33 @@ def test_parse_config_arg_returns_path() -> None:
     path = parse_config_arg("desc", ["--config", "configs/models/olmoe.yaml"])
 
     assert path == Path("configs/models/olmoe.yaml")
+
+
+def test_shot_and_eval_split_must_differ(tmp_path: Path) -> None:
+    data = yaml.safe_load((CONFIGS / "pairs" / "mmlu_pilot.yaml").read_text())
+    data["eval_split"] = data["shot_split"]
+
+    with pytest.raises(ConfigError, match="split"):
+        load_pairs_config(_write(tmp_path, data))
+
+
+@pytest.mark.parametrize("domain_key", ["domain_a", "domain_b"])
+def test_irrelevant_subjects_must_not_overlap_pair_domains(tmp_path: Path, domain_key) -> None:
+    data = yaml.safe_load((CONFIGS / "pairs" / "mmlu_pilot.yaml").read_text())
+    data["irrelevant_pool"]["subjects"].append(data["pairs"][0][domain_key])
+
+    with pytest.raises(ConfigError, match="irrelevant"):
+        load_pairs_config(_write(tmp_path, data))
+
+
+def test_irrelevant_pool_split_defaults_to_test_and_can_be_overridden(tmp_path: Path) -> None:
+    data = yaml.safe_load((CONFIGS / "pairs" / "mmlu_pilot.yaml").read_text())
+    del data["irrelevant_pool"]["split"]
+    assert load_pairs_config(_write(tmp_path, data)).irrelevant_split == "test"
+
+    data["irrelevant_pool"]["split"] = "validation"
+    assert load_pairs_config(_write(tmp_path, data, "other.yaml")).irrelevant_split == "validation"
+
+
+def test_shipped_pilot_pairs_use_the_test_split_for_the_irrelevant_pool() -> None:
+    assert load_pairs_config(CONFIGS / "pairs" / "mmlu_pilot.yaml").irrelevant_split == "test"

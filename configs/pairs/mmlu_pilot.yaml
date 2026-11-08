@@ -27,7 +27,10 @@ pairs:
   #   domain_b: high_school_physics
   #   expected_distance: medium
 
-# Pool for the "irrelevant examples" control. TODO(Phase 1): decide what counts
-# as irrelevant (see docs/design_decisions.md).
+# Pool for the "irrelevant examples" control (see D5 in docs/design_decisions.md).
+# Each control uses the same NUMBER of examples as the cross-domain prompt and a
+# matching token length, so the pool must be large and varied: draw it from the
+# test split of subjects that are never eval targets.
 irrelevant_pool:
   subjects: [high_school_world_history, philosophy]
+  split: test
