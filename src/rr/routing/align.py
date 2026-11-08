@@ -54,8 +54,34 @@ def target_token_positions(
     Returns:
         Sorted token positions (including BOS offset, if any) of the target block.
     """
-    # TODO(Phase 2): tokenize with offsets, select tokens overlapping the span.
-    raise NotImplementedError("TODO(Phase 2): char span -> token positions")
+    positions, _ = _encode_target(tokenizer, prompt)
+    return positions
+
+
+def _encode_target(
+    tokenizer: PreTrainedTokenizerBase, prompt: BuiltPrompt
+) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    """Positions and token ids of the target block, using the model's default encoding."""
+    encoded = tokenizer(prompt.text, return_offsets_mapping=True)
+    span_start, span_end = prompt.target_char_span
+    positions: list[int] = []
+    token_ids: list[int] = []
+    for position, (token_id, (start, end)) in enumerate(
+        zip(encoded["input_ids"], encoded["offset_mapping"], strict=True)
+    ):
+        if start == end:  # special tokens (e.g. BOS) have an empty span
+            continue
+        if start < span_start < end or start < span_end < end:
+            raise ValueError(
+                f"a token straddles the target boundary in the {prompt.condition} prompt "
+                f"(token span {start}-{end}, target span {span_start}-{span_end})"
+            )
+        if start >= span_start and end <= span_end:
+            positions.append(position)
+            token_ids.append(token_id)
+    if not positions:
+        raise ValueError(f"no tokens fall inside the target span of the {prompt.condition} prompt")
+    return tuple(positions), tuple(token_ids)
 
 
 def align_target_tokens(
@@ -75,5 +101,13 @@ def align_target_tokens(
         ValueError: If the prompts have different targets or the aligned token
             ids differ.
     """
-    # TODO(Phase 2): call target_token_positions for both and assert equal token ids.
-    raise NotImplementedError("TODO(Phase 2): align target tokens across prompts")
+    if prompt_a.target != prompt_b.target:
+        raise ValueError("prompts do not share the same target question")
+    positions_a, ids_a = _encode_target(tokenizer, prompt_a)
+    positions_b, ids_b = _encode_target(tokenizer, prompt_b)
+    if ids_a != ids_b:
+        raise ValueError(
+            f"target token ids differ between the {prompt_a.condition} and "
+            f"{prompt_b.condition} prompts"
+        )
+    return TokenAlignment(positions_a=positions_a, positions_b=positions_b)

@@ -20,6 +20,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import torch
+
 if TYPE_CHECKING:
     from transformers import PreTrainedModel, PreTrainedTokenizerBase
 
@@ -103,6 +105,34 @@ def score_mc(
         log-probs over the option tokens only (not renormalized over the
         vocabulary unless decided otherwise).
     """
-    # TODO(Phase 0): one forward pass under torch.inference_mode(), take logits
-    # at the last position, log_softmax, gather option-label token ids, argmax.
-    raise NotImplementedError("TODO(Phase 0): option log-prob scoring")
+    if not 0 <= correct_index < len(option_labels):
+        raise ValueError(
+            f"correct_index {correct_index} out of range for {len(option_labels)} option labels"
+        )
+    label_ids = _option_token_ids(tokenizer, option_labels)
+    input_ids = torch.tensor([tokenizer(prompt)["input_ids"]], device=model.device)
+    with torch.inference_mode():
+        logits = model(input_ids=input_ids).logits[0, -1]
+        logprobs = logits.float().log_softmax(dim=-1)[list(label_ids)].tolist()
+    prediction = max(range(len(logprobs)), key=logprobs.__getitem__)
+    return MCScore(
+        option_logprobs=tuple(logprobs),
+        prediction=prediction,
+        is_correct=prediction == correct_index,
+        correct_logprob=logprobs[correct_index],
+    )
+
+
+def _option_token_ids(
+    tokenizer: PreTrainedTokenizerBase, option_labels: tuple[str, ...]
+) -> tuple[int, ...]:
+    """Token id of each label as it follows the ``Answer:`` cue (i.e. with a leading space)."""
+    ids: list[int] = []
+    for label in option_labels:
+        label_ids = tokenizer(f" {label}", add_special_tokens=False)["input_ids"]
+        if len(label_ids) != 1:
+            raise ValueError(
+                f"option label {label!r} must encode to a single token, got {len(label_ids)}"
+            )
+        ids.append(label_ids[0])
+    return tuple(ids)

@@ -53,3 +53,52 @@ def make_questions():
         return [make_question(subject, i, words) for i in range(count)]
 
     return _make
+
+
+# --- tiny real OLMoE (random weights, no downloads) -----------------------------------
+
+TINY_NUM_LAYERS = 2
+TINY_NUM_EXPERTS = 8
+TINY_TOP_K = 2
+TINY_ROUTER_NAMES = tuple(f"model.layers.{i}.mlp.gate" for i in range(TINY_NUM_LAYERS))
+
+
+def build_tiny_moe(*, norm_topk_prob: bool = False, seed: int = 0):
+    """A real ``OlmoeForCausalLM`` with random weights, small enough to run in milliseconds."""
+    import torch
+    from transformers import OlmoeConfig, OlmoeForCausalLM
+
+    config = OlmoeConfig(
+        vocab_size=128,
+        hidden_size=32,
+        intermediate_size=16,
+        num_hidden_layers=TINY_NUM_LAYERS,
+        num_attention_heads=2,
+        num_key_value_heads=2,
+        num_experts=TINY_NUM_EXPERTS,
+        num_experts_per_tok=TINY_TOP_K,
+        norm_topk_prob=norm_topk_prob,
+        max_position_embeddings=64,
+        pad_token_id=0,
+        bos_token_id=1,
+        eos_token_id=2,
+    )
+    torch.manual_seed(seed)
+    return OlmoeForCausalLM(config).eval()
+
+
+@pytest.fixture(scope="module")
+def tiny_moe():
+    return build_tiny_moe()
+
+
+@pytest.fixture
+def router_names() -> tuple[str, ...]:
+    return TINY_ROUTER_NAMES
+
+
+@pytest.fixture
+def input_ids():
+    import torch
+
+    return torch.tensor([[3, 17, 42, 8, 99, 5, 61, 23]])

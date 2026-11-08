@@ -33,9 +33,15 @@ def token_jaccard(topk_a: torch.Tensor, topk_b: torch.Tensor) -> torch.Tensor:
     Raises:
         ValueError: If shapes differ.
     """
-    # TODO(Phase 2): vectorized set intersection (e.g. one-hot over experts, or
-    # pairwise equality counts), union = 2k - intersection.
-    raise NotImplementedError("TODO(Phase 2): per-token Jaccard")
+    if topk_a.shape != topk_b.shape:
+        raise ValueError(f"shape mismatch: {tuple(topk_a.shape)} vs {tuple(topk_b.shape)}")
+    if topk_a.dim() != 3:
+        raise ValueError(f"expected a 3-D [layers, tokens, top_k] tensor, got {topk_a.dim()}-D")
+    top_k = topk_a.shape[-1]
+    # Pairwise equality counts each shared expert once (ids are unique within a top-k).
+    intersection = (topk_a.unsqueeze(-1) == topk_b.unsqueeze(-2)).any(dim=-1).sum(dim=-1)
+    union = 2 * top_k - intersection
+    return intersection.float() / union.float()
 
 
 def per_layer_jaccard(topk_a: torch.Tensor, topk_b: torch.Tensor) -> np.ndarray:
@@ -44,5 +50,4 @@ def per_layer_jaccard(topk_a: torch.Tensor, topk_b: torch.Tensor) -> np.ndarray:
     Returns:
         ``[num_layers]`` array. Lower values mean more routing change.
     """
-    # TODO(Phase 2): token_jaccard(...).mean(dim=1) as numpy.
-    raise NotImplementedError("TODO(Phase 2): per-layer mean Jaccard")
+    return token_jaccard(topk_a, topk_b).mean(dim=1).numpy()

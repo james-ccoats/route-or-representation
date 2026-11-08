@@ -26,8 +26,11 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import torch
+
+from rr.routing._hooks import attach_batch_size_guard, remove_handles, resolve_routers
+
 if TYPE_CHECKING:
-    import torch
     from transformers import PreTrainedModel
 
 
@@ -48,12 +51,20 @@ class RoutingRecord:
 
     def select_positions(self, positions: Sequence[int]) -> RoutingRecord:
         """Return a new record restricted to the given token positions."""
-        # TODO(Phase 0): index dim 1 with `positions` and return a new RoutingRecord.
-        raise NotImplementedError("TODO(Phase 0): slice record by token positions")
+        if len(positions) == 0:
+            raise ValueError("cannot select an empty set of positions")
+        num_tokens = self.topk_indices.shape[1]
+        if any(not 0 <= p < num_tokens for p in positions):
+            raise IndexError(f"positions {list(positions)} out of range for {num_tokens} tokens")
+        index = torch.tensor(list(positions), dtype=torch.long)
+        return RoutingRecord(
+            topk_indices=self.topk_indices.index_select(1, index),
+            router_probs=self.router_probs.index_select(1, index),
+        )
 
 
 class RoutingRecorder:
-    """Context manager that records routing during forward passes.
+    """Context manager that records routing during forward passes (batch size 1 only).
 
     Example:
         >>> with RoutingRecorder(model, router_names, top_k=8) as recorder:
@@ -74,24 +85,62 @@ class RoutingRecorder:
         self._router_module_names = tuple(router_module_names)
         self._top_k = top_k
         self._handles: list[torch.utils.hooks.RemovableHandle] = []
+        self._indices: list[list[torch.Tensor]] = []
+        self._probs: list[list[torch.Tensor]] = []
 
     def __enter__(self) -> RoutingRecorder:
         """Attach a forward hook to every router module."""
-        # TODO(Phase 0): register hooks via module.register_forward_hook and
-        # store the handles in self._handles; buffers are per-layer lists.
-        raise NotImplementedError("TODO(Phase 0): attach hooks")
+        routers = resolve_routers(self._model, self._router_module_names)
+        self._indices = [[] for _ in routers]
+        self._probs = [[] for _ in routers]
+        try:
+            self._handles.append(attach_batch_size_guard(self._model))
+            for layer, router in enumerate(routers):
+                self._handles.append(router.register_forward_hook(self._make_hook(layer)))
+        except BaseException:
+            self._detach()
+            raise
+        return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
         """Remove all hooks, even if the ``with`` body raised. Do not suppress errors."""
-        # TODO(Phase 0): for handle in self._handles: handle.remove() inside a
-        # try/finally so partial failures still clear the list; return None.
-        raise NotImplementedError("TODO(Phase 0): remove hooks")
+        self._detach()
 
     def get_record(self) -> RoutingRecord:
         """Assemble buffered routing into a :class:`RoutingRecord`.
 
         Raises:
-            RuntimeError: If nothing was recorded (no forward pass ran).
+            RuntimeError: If nothing was recorded (no forward pass ran), or more
+                than one forward pass was recorded.
         """
-        # TODO(Phase 0): stack per-layer buffers into [L, T, K] tensors.
-        raise NotImplementedError("TODO(Phase 0): build RoutingRecord")
+        counts = {len(buffer) for buffer in self._indices}
+        if counts == {0} or not counts:
+            raise RuntimeError("nothing was recorded: no forward pass ran inside the with-block")
+        if counts != {1}:
+            raise RuntimeError(
+                "recorded more than one forward pass (or an uneven number across layers); "
+                "use one forward pass per RoutingRecorder"
+            )
+        return RoutingRecord(
+            topk_indices=torch.stack([buffer[0] for buffer in self._indices]),
+            router_probs=torch.stack([buffer[0] for buffer in self._probs]),
+        )
+
+    def _make_hook(self, layer: int):
+        name = self._router_module_names[layer]
+
+        def hook(module, args, output) -> None:
+            _, scores, indices = output
+            if indices.shape[-1] != self._top_k:
+                raise ValueError(
+                    f"top_k mismatch: recorder expects {self._top_k} but router {name!r} "
+                    f"selected {indices.shape[-1]} experts per token"
+                )
+            self._indices[layer].append(indices.detach().cpu().clone())
+            self._probs[layer].append(scores.detach().float().cpu())
+
+        return hook
+
+    def _detach(self) -> None:
+        handles, self._handles = self._handles, []
+        remove_handles(handles)

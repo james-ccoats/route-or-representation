@@ -16,7 +16,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from rr.routing._hooks import normalizes_topk_probs
+
 if TYPE_CHECKING:
+    from torch import nn
     from transformers import PreTrainedModel, PreTrainedTokenizerBase
 
     from rr.config import ArchitectureConfig
@@ -78,10 +81,48 @@ def inspect_moe_structure(model: PreTrainedModel) -> MoEStructure:
     Raises:
         RuntimeError: If no router modules are found.
     """
-    # TODO(Phase 0): find router modules (e.g. Linear layers named *.mlp.gate),
-    # read num_experts/top_k from model.config AND from module shapes, and
-    # check the top-k/normalization logic in the installed transformers source.
-    raise NotImplementedError("TODO(Phase 0): inspect router modules and config")
+    routers = [(name, m) for name, m in model.named_modules() if _is_router(m)]
+    if not routers:
+        raise RuntimeError(
+            "no router modules found: expected modules with integer 'top_k' and "
+            "'num_experts' attributes and a router 'weight'"
+        )
+    modules = [m for _, m in routers]
+    facts = {(m.num_experts, m.top_k, normalizes_topk_probs(m)) for m in modules}
+    if len(facts) != 1:
+        raise RuntimeError(f"routers disagree on (num_experts, top_k, normalize): {sorted(facts)}")
+    num_experts, top_k, normalizes = facts.pop()
+    for name, module in routers:
+        if module.weight.shape[0] != num_experts:
+            raise RuntimeError(
+                f"router {name!r} has weight rows {module.weight.shape[0]} "
+                f"but num_experts={num_experts}"
+            )
+    _check_against_model_config(model, num_experts, top_k)
+    return MoEStructure(
+        num_layers=len(routers),
+        num_experts=num_experts,
+        top_k=top_k,
+        router_module_names=tuple(name for name, _ in routers),
+        normalizes_topk_probs=normalizes,
+    )
+
+
+def _is_router(module: nn.Module) -> bool:
+    return (
+        isinstance(getattr(module, "top_k", None), int)
+        and isinstance(getattr(module, "num_experts", None), int)
+        and hasattr(module, "weight")
+    )
+
+
+def _check_against_model_config(model: PreTrainedModel, num_experts: int, top_k: int) -> None:
+    """Cross-check module-derived facts with ``model.config`` where it exposes them."""
+    config = model.config
+    for attr, value in (("num_experts", num_experts), ("num_experts_per_tok", top_k)):
+        configured = getattr(config, attr, None)
+        if configured is not None and configured != value:
+            raise RuntimeError(f"model.config.{attr}={configured} but the routers imply {value}")
 
 
 def verify_structure(structure: MoEStructure, expected: ArchitectureConfig) -> None:
@@ -90,5 +131,21 @@ def verify_structure(structure: MoEStructure, expected: ArchitectureConfig) -> N
     Raises:
         ValueError: Listing every mismatch, so the config can be corrected.
     """
-    # TODO(Phase 0): compare fields and raise with a readable diff.
-    raise NotImplementedError("TODO(Phase 0): compare discovered vs configured architecture")
+    mismatches = [
+        f"{field}: config={want!r}, model={got!r}"
+        for field, want, got in (
+            ("num_layers", expected.num_layers, structure.num_layers),
+            ("num_experts", expected.num_experts, structure.num_experts),
+            ("top_k", expected.top_k, structure.top_k),
+            (
+                "router_module_names",
+                expected.router_module_names(),
+                structure.router_module_names,
+            ),
+        )
+        if want != got
+    ]
+    if mismatches:
+        raise ValueError(
+            "architecture config does not match the loaded model:\n  " + "\n  ".join(mismatches)
+        )
