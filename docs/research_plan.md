@@ -88,8 +88,18 @@ and transfer direction.
 ## Success criteria
 
 - Sanity checks pass (identity check exact up to numerics; random forcing hurts).
+  As implemented in `rr.force_analysis`: the identity check passes if forcing the
+  zero-shot prompt's own routing changes no option log-prob by more than
+  `IDENTITY_TOLERANCE` (1e-3, a placeholder to tighten once the real model's bf16
+  numerics are known); the random check passes if random forcing lowers accuracy for
+  every few-shot condition tested. Neither is a statistical test.
 - A pair/direction is only interpreted if its few-shot gain is clearly nonzero
-  (the ratio is undefined otherwise).
+  (the ratio is undefined otherwise). The analysis reports such fractions as
+  "undefined" and shows the share of bootstrap resamples with no defined ratio.
+- **Not yet pre-registered:** what size of pilot effect counts as H1/H2 holding
+  (Phase 2 "done when"), and what counts as "a large fraction" retained or "only a
+  small fraction" recovered (H3/H4). Write numeric thresholds here before the main
+  run, so the interpretation is not chosen after seeing the results.
 - The headline result is reported as gain fractions with uncertainty across
   pairs, whichever direction it points. A finding that routing carries most of
   the gain is as valid as the reverse.

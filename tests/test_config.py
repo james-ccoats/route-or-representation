@@ -6,6 +6,7 @@ import pytest
 import yaml
 
 from rr.config import (
+    VALID_DISTANCES,
     ConfigError,
     load_experiment_config,
     load_model_config,
@@ -16,7 +17,7 @@ from rr.prompts import PromptCondition
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CONFIGS = REPO_ROOT / "configs"
-EXPERIMENT_NAMES = ["pilot", "force_routing", "reverse_check"]
+EXPERIMENT_NAMES = ["pilot", "force_routing", "reverse_check", "ladder_pilot"]
 
 
 def _write(tmp_path: Path, data: dict, name: str = "cfg.yaml") -> Path:
@@ -57,6 +58,37 @@ def test_pilot_pairs_config_runs_both_directions() -> None:
     assert len(runs) == 2 * len(cfg.pairs)
     assert ("bio_med:a2b", "college_biology", "college_medicine") in runs
     assert ("bio_med:b2a", "college_medicine", "college_biology") in runs
+
+
+def test_ladder_pairs_share_one_target_and_run_source_to_target_only() -> None:
+    cfg = load_pairs_config(CONFIGS / "pairs" / "mmlu_ladder.yaml")
+
+    runs = cfg.directions()
+
+    assert len(runs) == len(cfg.pairs) > 1
+    assert {target for _, _, target in runs} == {"college_biology"}
+    sources = [source for _, source, _ in runs]
+    assert len(set(sources)) == len(sources)
+    assert "college_biology" not in sources
+    assert all(run.endswith(":a2b") for run, _, _ in runs)
+
+
+def test_ladder_labels_run_from_same_field_to_far() -> None:
+    cfg = load_pairs_config(CONFIGS / "pairs" / "mmlu_ladder.yaml")
+
+    labels = [pair.expected_distance for pair in cfg.pairs]
+
+    assert labels[0] == "same_field"
+    assert labels[-1] == "far"
+    assert labels == sorted(labels, key=VALID_DISTANCES.index)
+
+
+def test_ladder_experiment_asks_for_no_more_questions_than_the_target_has() -> None:
+    cfg = load_experiment_config(CONFIGS / "experiments" / "ladder_pilot.yaml")
+
+    # college_biology has 144 test questions (checked against the dataset on 2026-11-09).
+    assert cfg.num_questions_per_target <= 144
+    assert cfg.pairs_config == Path("configs/pairs/mmlu_ladder.yaml")
 
 
 @pytest.mark.parametrize("name", EXPERIMENT_NAMES)
@@ -118,6 +150,14 @@ def test_unknown_condition_raises_config_error(tmp_path: Path) -> None:
     data["conditions"] = ["zero_shot", "bogus"]
 
     with pytest.raises(ConfigError, match="conditions"):
+        load_experiment_config(_write(tmp_path, data))
+
+
+def test_duplicate_conditions_raise_config_error(tmp_path: Path) -> None:
+    data = yaml.safe_load((CONFIGS / "experiments" / "pilot.yaml").read_text())
+    data["conditions"] = ["zero_shot", "cross_domain", "cross_domain"]
+
+    with pytest.raises(ConfigError, match="duplicate"):
         load_experiment_config(_write(tmp_path, data))
 
 

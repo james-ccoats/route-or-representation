@@ -96,6 +96,54 @@ def load_mmlu_subject(
     return questions
 
 
+def _row_to_text(row: Mapping[str, Any]) -> tuple[str, str]:
+    """Validate one raw row of the "all" config and return ``(subject, question + choices)``."""
+    subject = row.get("subject")
+    question = row.get("question")
+    choices = row.get("choices")
+    if not isinstance(subject, str) or not subject:
+        raise ValueError("missing or empty 'subject'")
+    if not isinstance(question, str) or not question.strip():
+        raise ValueError("missing or empty 'question'")
+    if not isinstance(choices, (list, tuple)) or not all(isinstance(c, str) for c in choices):
+        raise ValueError("'choices' must be a list of strings")
+    return subject, " ".join([question, *choices])
+
+
+def load_mmlu_texts(
+    split: str, dataset_name: str = "cais/mmlu", revision: str | None = None
+) -> dict[str, list[str]]:
+    """Load every subject's question text for one split, grouped by subject.
+
+    Used for the model-free subject distance (:mod:`rr.distance`), whose IDF needs
+    all subjects at once. Each text is the question followed by its answer choices.
+
+    Args:
+        split: One of ``"dev"``, ``"validation"``, ``"test"``.
+        dataset_name: Hugging Face dataset id.
+        revision: Dataset revision (commit hash) to pin; ``None`` uses the latest.
+
+    Returns:
+        ``{subject: [text, ...]}`` in dataset order.
+
+    Raises:
+        ValueError: If a row is malformed or the split is empty.
+    """
+    from datasets import load_dataset  # deferred: importing datasets is slow
+
+    rows = load_dataset(dataset_name, "all", split=split, revision=revision)
+    texts: dict[str, list[str]] = {}
+    for position, row in enumerate(rows):
+        try:
+            subject, text = _row_to_text(row)
+        except ValueError as error:
+            raise ValueError(f"{split} row {position}: {error}") from error
+        texts.setdefault(subject, []).append(text)
+    if not texts:
+        raise ValueError(f"{split} has no rows")
+    return texts
+
+
 def sample_questions(
     questions: Sequence[MCQuestion],
     n: int,

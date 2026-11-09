@@ -27,7 +27,8 @@ from rr.prompts import PromptCondition
 
 VALID_DTYPES = ("float32", "float16", "bfloat16")
 VALID_DEVICES = ("auto", "cpu", "cuda", "mps")
-VALID_DISTANCES = ("near", "medium", "far")
+# Ordered closest to farthest; the order is used to check labels against measured distance.
+VALID_DISTANCES = ("same_field", "near", "medium", "far")
 
 
 # The irrelevant control draws from subjects that are never eval targets, so it can use
@@ -274,6 +275,8 @@ def load_experiment_config(path: str | Path) -> ExperimentConfig:
             f"{where}: 'conditions' must be a non-empty list drawn from "
             f"{sorted(valid_conditions)}; got {raw_conditions}"
         )
+    if len(set(raw_conditions)) != len(raw_conditions):
+        raise ConfigError(f"{where}: 'conditions' has duplicate entries: {raw_conditions}")
     options = data.get("options", {})
     if not isinstance(options, dict):
         raise ConfigError(f"{where}: 'options' must be a mapping")

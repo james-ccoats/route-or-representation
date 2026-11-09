@@ -1,0 +1,47 @@
+# Fixed-target distance ladder: ONE target (college_biology), several sources at
+# increasing distance. Each pair runs source (domain_a) -> target (domain_b) only.
+#
+# Why a ladder: the target questions are identical across rungs (same subject, same
+# seed, same test pool), so differences between rungs come from the source examples
+# alone. That is a cleaner test of H5 (does the routing share of the gain grow with
+# domain distance?) than unrelated pairs, whose targets differ.
+#
+# The rungs were chosen from a measured, model-free distance (scripts/06_measure_distance.py;
+# lexical TF-IDF, see rr.distance), spread across the measured range:
+#   high_school_biology 0.685 | college_medicine 0.835 | virology 0.897 |
+#   college_chemistry 0.935  | college_computer_science 0.966      (measured 2026-11-09)
+# expected_distance is still a hypothesis from domain knowledge. The measurement is
+# crude and compressed at the far end (chemistry 0.935 vs computer science 0.966), so
+# re-check it, and prefer a routing-based distance once the model has run.
+dataset: cais/mmlu
+shot_split: dev
+eval_split: test
+run_both_directions: false
+
+pairs:
+  - name: hsbio_to_bio       # same field, different level
+    domain_a: high_school_biology
+    domain_b: college_biology
+    expected_distance: same_field
+  - name: med_to_bio
+    domain_a: college_medicine
+    domain_b: college_biology
+    expected_distance: near
+  - name: virology_to_bio
+    domain_a: virology
+    domain_b: college_biology
+    expected_distance: near
+  - name: chem_to_bio
+    domain_a: college_chemistry
+    domain_b: college_biology
+    expected_distance: medium
+  - name: cs_to_bio
+    domain_a: college_computer_science
+    domain_b: college_biology
+    expected_distance: far
+
+# Pool for the "irrelevant examples" control (see D5 in docs/design_decisions.md);
+# unchanged from the pilot. These subjects are never sources or targets.
+irrelevant_pool:
+  subjects: [high_school_world_history, philosophy]
+  split: test

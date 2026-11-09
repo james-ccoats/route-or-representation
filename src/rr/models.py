@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from torch import nn
     from transformers import PreTrainedModel, PreTrainedTokenizerBase
 
-    from rr.config import ArchitectureConfig
+    from rr.config import ArchitectureConfig, ModelConfig
 
 
 @dataclass(frozen=True)
@@ -43,6 +43,15 @@ class MoEStructure:
     top_k: int
     router_module_names: tuple[str, ...]
     normalizes_topk_probs: bool
+
+
+def model_provenance(config: ModelConfig) -> dict[str, str | None]:
+    """Identity of the model a run used: name, revision and dtype (not the device).
+
+    Recorded in run manifests so results from a different model, revision or dtype are
+    never resumed into the same file. Device is excluded on purpose.
+    """
+    return {"name": config.name, "revision": config.revision, "dtype": config.dtype}
 
 
 def load_model(

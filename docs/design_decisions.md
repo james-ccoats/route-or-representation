@@ -20,6 +20,17 @@ cleaner "routing" intervention. A leaves part of the routing signal (weights)
 tied to the current hidden state. Possibly report both. Depends on whether
 the model renormalizes top-k probabilities (verify in Phase 0).
 
+**Implemented (2026-11-08), still open as a research choice:** both are available
+through `force_mixing_weights` in the experiment config (`false` = A, the default;
+`true` = B). With A, the weights of the forced experts are the router's own softmax
+probabilities for them, renormalized only if the router renormalizes. In the installed
+`transformers` (5.22.1) `OlmoeTopKRouter.norm_topk_prob` follows the model config
+(`false` by default for OLMoE); read it off the real model with `inspect_moe_structure`
+rather than assuming. Consequence for the random control: with A and no renormalization,
+forcing random experts also shrinks the MoE output (their router probabilities are
+small), so it is a harsher intervention than "random experts with typical weights".
+Decide which of A/B is the headline before the main run, and report the other as a check.
+
 ---
 
 ## D2. Where to force routing
@@ -37,6 +48,12 @@ answered while letting the examples do whatever they do. B conflates example
 processing with the question. C may be too narrow since earlier question tokens
 feed later ones through attention.
 
+**Implemented (2026-11-08):** only A. `parse_forcing_options` rejects any
+`force_scope` other than `target_question_tokens`. Target positions come from
+`rr.routing.align` (offset mappings), and alignment raises if a token straddles the
+example/target boundary or the target token ids differ between prompts. B and C are
+not implemented; add them only if A's result needs a robustness check.
+
 ---
 
 ## D3. Metric
@@ -48,6 +65,11 @@ feed later ones through attention.
 **Considerations:** accuracy is coarse and noisy at small question counts;
 log-prob is smoother but harder to interpret. Gain fractions can be computed on
 either; report both and flag disagreement.
+
+**Implemented (2026-11-08):** `rr.force_analysis` and `rr.analysis` report both
+metrics side by side (`accuracy`, `correct_logprob`). Nothing yet flags disagreement
+automatically; compare the two columns by eye on the pilot before deciding which is
+primary.
 
 ---
 
@@ -111,11 +133,20 @@ needed).
 to label bias; the zero-shot prompt may have a strong letter prior that
 few-shot examples change, which is itself a representational effect.
 
+**Implemented as the default (2026-11-08), not yet verified on the real tokenizer:**
+letter scoring in one forward pass. Each label is encoded with a leading space
+(`" A"`), matching how in-context examples render `Answer: B`, and `score_mc` raises
+if a label is not a single token. Option log-probs come from the full-vocabulary
+log-softmax at the answer position and are *not* renormalized over A-D. Still open:
+whether to renormalize over the four options, and a label-bias check (e.g. permuting
+option order). Verify `tokenizer(" A", add_special_tokens=False)` on the OLMoE
+tokenizer when it is first loaded.
+
 ---
 
 ## D7. How to implement forcing
 
-**Status:** open
+**Status:** resolved (2026-11-08)
 
 **Options:** override router logits so the desired experts win top-k; or patch
 the top-k selection inside the MoE block.
@@ -123,6 +154,26 @@ the top-k selection inside the MoE block.
 **Considerations:** the logit approach is simple but couples selection and
 weights (affects D1). Decide after inspecting the installed `transformers`
 MoE implementation in Phase 0.
+
+**Choice:** neither as written. In the installed `transformers` (5.22.1) each layer's
+router is an `OlmoeTopKRouter` whose forward returns
+`(router_logits, router_scores, router_indices)`, and `OlmoeSparseMoeBlock` consumes
+the scores and indices. `RoutingForcer` is a forward hook on that router that replaces
+`router_scores` and `router_indices` at the chosen token rows and leaves the logits
+untouched; no model code is patched. Reason: it keeps selection and weights separate,
+which is what makes D1 a free choice, and it needs no modified `transformers` source.
+Rejected: the logit override (couples selection and weights, and cannot force an
+arbitrary expert set exactly) and patching the block (invasive, breaks on upgrades).
+
+**Verified on a tiny random-weight `OlmoeForCausalLM` (no downloads):** recorded top-k
+matches `output_router_logits`; forcing a run's own routing back onto itself leaves
+logits unchanged (with and without forced weights, with and without
+`norm_topk_prob`); hooks are removed on errors; batch size > 1 is rejected.
+
+**Caveats:** this relies on the router module returning that tuple. Re-run the test
+suite whenever the `transformers` version changes, and expect a second model family
+(Phase 4) to need its own adapter. Not yet exercised on the real 7B model, whose dtype
+(bf16) and device placement could change the identity-check numerics.
 
 ---
 
@@ -142,6 +193,23 @@ silently change which questions are sampled.
 
 **Considerations:** both are cheap. B is what a reviewer would ask for when
 checking that two prompt sets are comparable.
+
+**Extended by the 2026-11-08 code review:** the same gap existed for *results*.
+Resumed runs (D11) checked the run name and the question count, but not the settings
+that produced the existing records (`force_mixing_weights`, `layers`, random seed,
+planned interventions, model name/revision/dtype). Resuming after editing the config
+would silently mix records produced under different settings in one file, because
+the intervention label does not encode them.
+
+**Results half implemented (2026-11-08), option C:** each results file gets a
+`<run>.manifest.json` next to it (`rr.manifest`) holding the run name, the SHA-256 of
+the prompt file, and the settings above (model name, revision and dtype; forcing
+plans and options). It is written before the first question is evaluated and compared
+on every resume; any difference is refused, with each differing key listed. Results
+that exist without a manifest are also refused. The device is deliberately not
+recorded, so resuming on a different GPU is allowed. Still open here: A and B for the
+*prompt* sets, and pinning `model.revision` (still `null`), which the manifest records
+but cannot invent.
 
 ---
 
@@ -166,3 +234,119 @@ sample, which correlates those permutations.
 so shot questions can never be evaluated. If conclusions should not depend on one
 particular shot set, B is needed; consider repeating the pilot over several shot
 draws.
+
+---
+
+## D10. Uncertainty for the gain fractions
+
+**Status:** implemented (2026-11-08), open to revision after the pilot
+
+**Context:** the headline quantities are ratios of aggregate scores,
+`(forced - Z) / (F - Z)`. Ratios are unstable when `F - Z` is small, and an interval
+that ignores that would be misleading.
+
+**Choice:** a percentile bootstrap over *questions*, resampling the same questions
+jointly for Z, F and the forced score (they come from the same questions, so they are
+paired). 2000 resamples, 95% interval, seeded. A resample whose few-shot gain is ~0
+has no defined ratio and is dropped; `undefined_fraction` is reported next to the
+interval, and a fraction whose point gain is ~0 is reported as undefined with no
+interval. Paired differences for the pilot use the same bootstrap.
+
+**Limits to keep in mind:**
+- The interval covers question sampling only. With `shot_split: dev` and 5 shots the
+  shot set is fixed (D9), so shot-choice variance is not in the interval.
+- No multiple-comparison correction across pairs, directions, conditions or metrics.
+- A large `undefined_fraction` means the fraction should not be over-read.
+
+**Rejected:** averaging per-question ratios (unstable; `rr.analysis` states this
+explicitly) and a delta-method interval (poor when the denominator can be near zero).
+
+---
+
+## D11. Batch size and resumable runs
+
+**Status:** implemented (2026-11-08); the resume-settings gap is tracked in D8
+
+**Choice:** all routing hooks assume batch size 1. Routers see flattened
+`[batch * tokens, ...]` rows, so token positions are only meaningful for a single
+sequence; `RoutingRecorder` and `RoutingForcer` raise `ValueError` for any larger
+batch rather than record or force the wrong rows. Throughput is therefore one prompt
+per forward pass; revisit only if the main run is too slow.
+
+Experiments append results one question at a time to `<output_dir>/<run>.jsonl`
+(one record per question x condition x intervention). On restart a torn final line is
+dropped, a half-finished question is re-evaluated, and only its missing records are
+appended. Scores are deterministic (no sampling), so re-evaluation reproduces the
+lost values. The runner refuses to resume if the settings or prompt file changed since
+the run started (the manifest, D8), if the file holds another run's records, repeats a
+record, or has more questions than the prompt file. It also refuses an output path equal
+to the prompt file, which would append results into the prompts.
+
+Config validation rejects duplicate entries in `conditions`; they would plan the same
+intervention twice and write duplicate records.
+
+**Rejected:** one file per question (too many files on a cluster filesystem) and
+atomic whole-run output (loses everything on a preemption).
+
+---
+
+## D12. Which domain pairs, and the distance ladder
+
+**Status:** pilot pairs unchanged; ladder added (2026-11-09), open to revision after the pilot
+
+**Context:** the original three pairs (biology/medicine near, chemistry/physics medium,
+computer science/biology far) came from the initial scaffold with no recorded
+rationale beyond "science subjects at varying distance" for H5. Distance was an
+assumption. Three disjoint pairs also have different target questions, so differences
+between pairs mix distance with everything else about the target.
+
+**Measured distance (`rr.distance`, `scripts/06_measure_distance.py`):** each subject is
+one document of question and answer-choice text from the `test` split; words are
+TF-IDF weighted with IDF over all 57 subjects (a word in every subject has no weight);
+distance = 1 - cosine similarity. It is model-free, deterministic and cheap. It is
+lexical: it sees shared terminology, not shared skills or routing.
+
+What it showed on 2026-11-09:
+- **Near is resolved, far is compressed.** From `college_biology`, `high_school_biology`
+  is at 0.685 and `college_medicine` at 0.835, but nearly every other subject lies in
+  0.89-0.99. `college_chemistry` is 0.935 and `college_computer_science` 0.966, only
+  0.03 apart, and `philosophy` and `high_school_world_history` (the irrelevant pool) are
+  at 0.969 and 0.953, about as far as computer science.
+- **The pilot's near/medium labels are not separated.** `bio_med` measures 0.835 and
+  `chem_phys` 0.827, a 0.008 difference. Only `cs_bio` (0.966) is clearly farther. Do
+  not read a near-versus-medium difference in the pilot as a distance effect.
+
+**Choice:** a fixed-target ladder, `configs/pairs/mmlu_ladder.yaml` with
+`configs/experiments/ladder_pilot.yaml`. One target (`college_biology`, all 144 test
+questions, identical across rungs because subject, seed and pool are the same) and five
+sources, one direction each: `high_school_biology` (same_field, 0.685), `college_medicine`
+(near, 0.835), `virology` (near, 0.897), `college_chemistry` (medium, 0.935),
+`college_computer_science` (far, 0.966). Rungs were picked from the measurement to
+spread across its range; the labels remain hypotheses from domain knowledge, and the
+script flags any label ordering that the measurement contradicts (none for the ladder).
+`same_field` was added to the allowed labels for the high-school-to-college rung, which
+separates "same domain" from "same difficulty and style".
+
+All five rungs build with k = 5 and an exact 0-token gap between the irrelevant control
+and the cross-domain examples. Cross-domain example tokens are 274 (virology), 393
+(medicine), 415 (high school biology), 442 (chemistry) and 714 (computer science).
+
+**Known limits:**
+- **Length is partly confounded with distance.** The longest prompt is the farthest rung
+  (rank correlation of example length with distance across the rungs is about 0.6).
+  The length-matched irrelevant control is the within-rung guard; compare
+  cross-domain minus irrelevant, not cross-domain alone, across rungs.
+- **Five rungs, one target.** It tests distance within biology as a target; it does not
+  show the pattern generalizes to other targets. The original pairs and a second ladder
+  on another target would be the replication.
+- **Lexical, not representational.** A routing- or hidden-state-based distance needs the
+  model; if it disagrees with the lexical ordering, prefer it and re-pick the rungs.
+- **Rung choice used the data.** Choosing sources by measured distance is fine for
+  spreading them, but do not then report the measurement as independent confirmation of
+  the labels.
+- **Shots are fixed.** Each source contributes its 5 `dev` questions (D9), so a rung is
+  one shot set; shot-choice variance is not in the intervals (D10).
+
+**Rejected:** picking sources by intuition alone (the labels did not separate in the
+pilot); deriving distance from the zero-shot accuracy matrix (needs the model and
+conflates distance with difficulty).

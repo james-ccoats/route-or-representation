@@ -137,3 +137,56 @@ def test_load_mmlu_subject_passes_dataset_revision(monkeypatch) -> None:
     load_mmlu_subject("college_biology", "dev", revision="abc123")
 
     assert seen["revision"] == "abc123"
+
+
+# --- load_mmlu_texts -----------------------------------------------------------------------
+
+
+def _text_row(subject, question="Q", choices=("a", "b", "c", "d")):
+    return {"subject": subject, "question": question, "choices": list(choices), "answer": 0}
+
+
+def test_load_mmlu_texts_groups_question_and_choices_by_subject(monkeypatch) -> None:
+    from rr.data import load_mmlu_texts
+
+    calls = _patch_dataset(
+        monkeypatch,
+        [
+            _text_row("bio", "What is a cell?", ("unit", "atom")),
+            _text_row("law", "What is a tort?"),
+            _text_row("bio", "What is DNA?", ("gene", "rock")),
+        ],
+    )
+
+    texts = load_mmlu_texts("test")
+
+    assert calls == [("cais/mmlu", "all", "test")]
+    assert texts["bio"] == ["What is a cell? unit atom", "What is DNA? gene rock"]
+    assert set(texts) == {"bio", "law"}
+
+
+@pytest.mark.parametrize(
+    "bad_row",
+    [
+        {"subject": "bio", "question": "Q"},
+        {"subject": 3, "question": "Q", "choices": ["a"]},
+        {"subject": "bio", "question": "", "choices": ["a"]},
+        {"subject": "bio", "question": "Q", "choices": "abc"},
+    ],
+)
+def test_load_mmlu_texts_rejects_malformed_rows(monkeypatch, bad_row) -> None:
+    from rr.data import load_mmlu_texts
+
+    _patch_dataset(monkeypatch, [bad_row])
+
+    with pytest.raises(ValueError, match="row 0"):
+        load_mmlu_texts("test")
+
+
+def test_load_mmlu_texts_rejects_an_empty_split(monkeypatch) -> None:
+    from rr.data import load_mmlu_texts
+
+    _patch_dataset(monkeypatch, [])
+
+    with pytest.raises(ValueError, match="no rows"):
+        load_mmlu_texts("test")
