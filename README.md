@@ -28,7 +28,7 @@ distance. These are hypotheses, not results; see
 | Phase | Description | Status |
 |-------|-------------|--------|
 | 0 | Setup: load OLMoE, score MC by option log-probs, record top-k routing | scoring, routing recorder and structure inspection done and tested on a tiny MoE; `load_model` and the real-model check pending |
-| 1 | Data: MMLU domain pairs, four prompt conditions | pilot and ladder prompts built (`data/prompts/pilot`, `data/prompts/ladder`); main-run prompts not yet built |
+| 1 | Data: MMLU domain pairs, four prompt conditions, k = 1 to 5, three example-set replicates | pilot, ladder and main prompts built (`data/prompts/pilot`, `ladder`, `main`; 75 to 90 files each) |
 | 2 | Pilot: few-shot beats zero-shot? relevant examples shift routing more? | pipeline built and tested on a tiny MoE; not yet run on OLMoE |
 | 3 | Main experiment: forced routing, reverse check, sanity checks | forcing, both scripts and the gain-fraction analysis built and tested on a tiny MoE; not yet run on OLMoE; `05_make_figures.py` still a stub |
 | 4 | Extensions: layer-by-layer forcing, second MoE model, distance/direction | not started |
@@ -79,9 +79,18 @@ summaries of how far it moved from the zero-shot prompt's (D13). This adds no fo
 passes. It is supporting evidence about the representation, not a causal test, and it
 only means something next to its chance baseline and the irrelevant-example control.
 
-`03` and `04` read `data/prompts/main`, so build those prompts first (the second
-`01` command above; `reverse_check.yaml` points at the same directory). Building
+`03` and `04` read `data/prompts/main`, so build those prompts first (the `01` command for
+`force_routing.yaml`; `reverse_check.yaml` points at the same directory). Building
 prompts needs only the tokenizer and MMLU, not the model weights.
+
+**Shots and replicates (D14).** Every experiment runs k = 1, 2, 3, 4, 5 examples, not just
+zero-shot against k = 5. Each of 3 replicates draws its own set of 5 examples per domain
+from `dev` and `validation` together, and the k-shot prompt uses the first k of them. Each
+(direction, replicate, k) is a separate prompt file and run, named like
+`bio_med_a2b_r1_k3`, with every question seeing the same examples within a run. `01`
+refuses to write into a directory that holds prompt files it does not produce, so
+rebuilding after changing these settings needs the old files removed first. The summaries
+printed by `02`-`04` then show gain against k, with the range across replicates.
 
 Scripts `02`-`04` write one JSONL file per run (domain pair and direction) to the
 config's `output_dir`, one record per question x condition x intervention, and print
@@ -113,6 +122,8 @@ Package modules (`src/rr/`):
 ```
 config, data, prompts       configs, MMLU loading/sampling, the four prompt conditions
 distance                    model-free lexical distance between MMLU subjects (labels check)
+shots, prompt_build         run names for (direction, replicate, k); prompts for every replicate and k
+shot_curves                 gain / routing shift / gain fractions against k, spread across replicates
 models, scoring             MoE structure inspection, option log-prob scoring
 routing/                    record (hooks), force (hooks), align (target tokens), metrics (Jaccard)
 results, runner, manifest   result-record schema + JSONL I/O, resumable per-file runner, run manifests

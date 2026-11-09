@@ -21,7 +21,6 @@ from rr.config import (
     parse_bool_option,
     parse_config_arg,
 )
-from rr.force_analysis import format_force_summary
 from rr.force_experiment import (
     ForcingPlan,
     parse_forcing_options,
@@ -30,6 +29,7 @@ from rr.force_experiment import (
     run_forcing_file,
 )
 from rr.models import inspect_moe_structure, load_model, model_provenance, verify_structure
+from rr.shot_curves import summarize_force_results
 
 PlanFactory = Callable[[ExperimentConfig], tuple[ForcingPlan, ...]]
 
@@ -91,4 +91,4 @@ def run_forcing_script(
             show_progress=True,
         )
         print(f"{path.stem}: evaluated {evaluated} questions")
-    print(format_force_summary(load_results(cfg.output_dir), seed=cfg.seed))
+    print(summarize_force_results(load_results(cfg.output_dir), seed=cfg.seed))

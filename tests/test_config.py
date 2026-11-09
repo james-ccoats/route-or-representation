@@ -203,3 +203,94 @@ def test_irrelevant_pool_split_defaults_to_test_and_can_be_overridden(tmp_path: 
 
 def test_shipped_pilot_pairs_use_the_test_split_for_the_irrelevant_pool() -> None:
     assert load_pairs_config(CONFIGS / "pairs" / "mmlu_pilot.yaml").irrelevant_split == "test"
+
+
+# --- shot counts, replicates and pooled shot splits ---------------------------------------
+
+
+def _experiment_data() -> dict:
+    return yaml.safe_load((CONFIGS / "experiments" / "pilot.yaml").read_text())
+
+
+def test_shot_counts_default_to_num_shots_and_one_replicate(tmp_path: Path) -> None:
+    data = _experiment_data()
+    data.pop("shot_counts", None)
+    data.pop("num_replicates", None)
+
+    cfg = load_experiment_config(_write(tmp_path, data))
+
+    assert cfg.shot_counts == (data["num_shots"],)
+    assert cfg.num_replicates == 1
+
+
+def test_shot_counts_and_replicates_are_read(tmp_path: Path) -> None:
+    data = {**_experiment_data(), "num_shots": 5, "shot_counts": [1, 2, 3], "num_replicates": 4}
+
+    cfg = load_experiment_config(_write(tmp_path, data))
+
+    assert cfg.shot_counts == (1, 2, 3)
+    assert cfg.num_replicates == 4
+
+
+@pytest.mark.parametrize(
+    "counts",
+    [[], [0, 1], [2, 1], [1, 1], [1, 6], [-1], ["1"], [True], "3"],
+)
+def test_bad_shot_counts_raise_config_error(tmp_path: Path, counts) -> None:
+    data = {**_experiment_data(), "num_shots": 5, "shot_counts": counts}
+
+    with pytest.raises(ConfigError, match="shot_counts"):
+        load_experiment_config(_write(tmp_path, data))
+
+
+@pytest.mark.parametrize("replicates", [0, -1, True, "3"])
+def test_bad_num_replicates_raise_config_error(tmp_path: Path, replicates) -> None:
+    data = {**_experiment_data(), "num_replicates": replicates}
+
+    with pytest.raises(ConfigError, match="num_replicates"):
+        load_experiment_config(_write(tmp_path, data))
+
+
+def test_shot_splits_default_to_the_shot_split_and_accept_extras(tmp_path: Path) -> None:
+    data = yaml.safe_load((CONFIGS / "pairs" / "mmlu_pilot.yaml").read_text())
+    data.pop("extra_shot_splits", None)
+    assert load_pairs_config(_write(tmp_path, data)).shot_splits == (data["shot_split"],)
+
+    data["extra_shot_splits"] = ["validation"]
+    cfg = load_pairs_config(_write(tmp_path, data, "other.yaml"))
+    assert cfg.shot_splits == (data["shot_split"], "validation")
+
+
+def test_extra_shot_splits_must_not_include_the_eval_split(tmp_path: Path) -> None:
+    data = yaml.safe_load((CONFIGS / "pairs" / "mmlu_pilot.yaml").read_text())
+    data["extra_shot_splits"] = [data["eval_split"]]
+
+    with pytest.raises(ConfigError, match="eval_split"):
+        load_pairs_config(_write(tmp_path, data))
+
+
+@pytest.mark.parametrize("extra", ["validation", [1], ["dev"], ["validation", "validation"]])
+def test_bad_extra_shot_splits_raise_config_error(tmp_path: Path, extra) -> None:
+    data = yaml.safe_load((CONFIGS / "pairs" / "mmlu_pilot.yaml").read_text())
+    data["extra_shot_splits"] = extra
+
+    with pytest.raises(ConfigError, match="extra_shot_splits"):
+        load_pairs_config(_write(tmp_path, data))
+
+
+@pytest.mark.parametrize(
+    "name", EXPERIMENT_NAMES + ["ladder_force_routing", "ladder_reverse_check"]
+)
+def test_shipped_experiments_run_k_1_to_5_over_several_replicates(name: str) -> None:
+    cfg = load_experiment_config(CONFIGS / "experiments" / f"{name}.yaml")
+
+    assert cfg.shot_counts == (1, 2, 3, 4, 5)
+    assert cfg.num_replicates >= 2
+
+
+@pytest.mark.parametrize("name", ["mmlu_pilot", "mmlu_ladder"])
+def test_shipped_pairs_pool_dev_and_validation_for_shots(name: str) -> None:
+    cfg = load_pairs_config(CONFIGS / "pairs" / f"{name}.yaml")
+
+    assert cfg.shot_splits == ("dev", "validation")
+    assert cfg.eval_split == "test"

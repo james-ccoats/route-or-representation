@@ -75,7 +75,8 @@ primary.
 
 ## D4. Number of shots and questions per target domain
 
-**Status:** open
+**Status:** open for the question count; shots resolved by D14 (k = 1 to 5, nested,
+three replicates of the example set).
 
 **Options:**
 - Shots: 1, 3, 5, or more.
@@ -215,7 +216,8 @@ but cannot invent.
 
 ## D9. Shot sampling and seeds
 
-**Status:** open
+**Status:** resolved by D14 for shot selection (option B: pooled shot splits and repeated
+draws). The shared-seed concern (option C) is not addressed.
 
 **Context:** the pilot uses `shot_split: dev` (5 questions per subject) with
 `num_shots: 5`, so `sample_questions` selects every dev question and the seed only
@@ -405,3 +407,62 @@ forward passes. Memory is transient: `layers * tokens * hidden * 4` bytes per pa
 the shift with routing held fixed (the complement of what forcing does). Build it only if
 the pilot shows a shift worth testing. A routing-based distance between subjects
 (D12) would reuse the same recorded router inputs.
+
+---
+
+## D14. Shot counts, example-set replicates and pooled shot splits
+
+**Status:** decided 2026-11-09 (supersedes the fixed single k = 5 draw of D4 and D9).
+
+**Decision:**
+- **Shot counts.** Each experiment runs `shot_counts: [1, 2, 3, 4, 5]` rather than only
+  zero-shot against k = 5, so the gain is a curve over k.
+- **Nested prompts.** A replicate draws one ordered set of `num_shots` (5) examples per
+  domain; the k-shot prompt uses the first k. Going from k to k + 1 adds one example and
+  keeps the others, so a change along k is the effect of that example, not of a new draw.
+- **Pooled shot splits.** Examples are drawn from `dev` and `validation` together
+  (`extra_shot_splits: [validation]` in the pairs config). `dev` alone has exactly 5
+  questions per subject, which allows only one set. `test` stays evaluation-only.
+- **Replicates.** `num_replicates: 3` independent example sets. Within a replicate the
+  examples are fixed for every target question (so the zero-shot against few-shot
+  comparison for a question is paired and the example block has one length); across
+  replicates they differ. The shuffle of the pool is seeded once and replicate r takes the
+  next 5 questions, wrapping at the end: disjoint while the pool lasts, and otherwise
+  reusing only the questions it wraps onto. Pool sizes after pooling are 13 to 27 for the
+  pilot subjects (before the overlap drop below), so college_chemistry (13) overlaps
+  between replicates 0 and 2, and college_physics (8 usable) between all three.
+- **One run per (direction, replicate, k).** Each gets its own prompt file, results file and
+  manifest, named `bio_med_a2b_r1_k3`. The runner, manifests and per-run analysis are
+  unchanged; `rr.shot_curves` groups runs back together. Zero-shot is rescored in every
+  run (the prompt is short, so this costs little), which keeps each run self-contained.
+- **Same questions everywhere.** The evaluation questions of a direction are identical in
+  every replicate and k. They exclude any question used as a same-domain example.
+- **Control re-matched.** The irrelevant control is re-selected for each (replicate, k) to
+  match the cross-domain example count and token length.
+
+**Found while building:** MMLU repeats some questions across splits. Six of college_physics'
+14 pooled `dev`/`validation` questions also appear in its `test` split. Used as examples,
+they would show the model the answer to a question it is later scored on. The build now
+drops shot-pool questions that are also in the evaluation split (`without_overlap`) and
+prints how many, leaving college_physics with 8 usable examples. The other subjects used so
+far have no overlap.
+
+**How to read the results:**
+- The interval on a gain covers question noise only. The spread between replicates is
+  reported beside it, as the range of the per-replicate gain. Three replicates cannot
+  support a variance estimate of the draw, so the two are not combined.
+- **Example tokens vary by replicate and k** (for example 45 to 135 tokens at k = 1 in
+  bio_med_a2b, 321 to 402 at k = 5). Gain against k is therefore partly gain against length;
+  the irrelevant control, matched in length, is the baseline for that.
+- Nested prompts make the k values within a replicate dependent. Treat the curve as one
+  trajectory per replicate, not five independent points.
+- Distance and k are not crossed with the replicate draw, so replicates of one direction
+  share the same pool of source questions; an unusually helpful or harmful example can
+  appear in several replicates when the pool is small.
+
+**Cost:** the pilot builds 90 prompt files (6 directions x 3 replicates x 5 k) with all four
+conditions, and the forcing experiments 90 with two. Generated prompt files total about
+150 MB for the pilot, ladder and main sets; they are reproducible from the configs.
+
+**Not done:** a hierarchical model across replicates and questions; a combined interval
+for question and draw variance; crossing k with the irrelevant-control seed.

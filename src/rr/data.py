@@ -175,3 +175,64 @@ def sample_questions(
         )
     chosen = np.random.default_rng(seed).choice(len(candidates), size=n, replace=False)
     return [candidates[i] for i in chosen]
+
+
+def load_shot_pool(
+    subject: str,
+    splits: Sequence[str],
+    dataset_name: str = "cais/mmlu",
+    revision: str | None = None,
+) -> list[MCQuestion]:
+    """Load the questions few-shot examples may be drawn from: several splits pooled.
+
+    MMLU's ``dev`` split has only 5 questions per subject, so pooling it with
+    ``validation`` gives enough distinct questions to draw several example sets.
+
+    Args:
+        subject: MMLU subject config name.
+        splits: Splits to pool, in order (never the evaluation split).
+        dataset_name: Hugging Face dataset id.
+        revision: Dataset revision (commit hash) to pin.
+
+    Returns:
+        The pooled questions in split order, with exact duplicates dropped.
+    """
+    pool: list[MCQuestion] = []
+    seen: set[MCQuestion] = set()
+    for split in splits:
+        for question in load_mmlu_subject(subject, split, dataset_name, revision):
+            if question not in seen:
+                seen.add(question)
+                pool.append(question)
+    return pool
+
+
+def draw_shot_sets(
+    pool: Sequence[MCQuestion], shots_per_set: int, num_sets: int, seed: int
+) -> list[list[MCQuestion]]:
+    """Draw ``num_sets`` ordered example sets of ``shots_per_set`` questions from one pool.
+
+    The pool is shuffled once with the seed and set ``r`` takes the next
+    ``shots_per_set`` questions, wrapping around the end. Sets are therefore disjoint
+    while the pool lasts; once it runs out, a set reuses only the questions it wraps
+    onto, and never repeats a question within itself. The order inside a set is the
+    shuffled order, so the first ``k`` questions of a set form a nested k-shot prompt.
+
+    Raises:
+        ValueError: On non-positive sizes, or a pool smaller than one set.
+    """
+    if shots_per_set < 1 or num_sets < 1:
+        raise ValueError(
+            f"shots_per_set and num_sets must be positive, got {shots_per_set} and {num_sets}"
+        )
+    unique = list(dict.fromkeys(pool))
+    if len(unique) < shots_per_set:
+        raise ValueError(
+            f"pool has {len(unique)} questions, fewer than the {shots_per_set} needed per set"
+        )
+    order = np.random.default_rng(seed).permutation(len(unique))
+    size = len(unique)
+    return [
+        [unique[int(order[(r * shots_per_set + j) % size])] for j in range(shots_per_set)]
+        for r in range(num_sets)
+    ]

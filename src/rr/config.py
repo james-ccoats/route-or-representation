@@ -86,6 +86,12 @@ class PairsConfig:
     pairs: tuple[DomainPair, ...]
     irrelevant_subjects: tuple[str, ...]
     irrelevant_split: str = DEFAULT_IRRELEVANT_SPLIT
+    extra_shot_splits: tuple[str, ...] = ()
+
+    @property
+    def shot_splits(self) -> tuple[str, ...]:
+        """Every split few-shot examples may be drawn from: ``shot_split`` then the extras."""
+        return (self.shot_split, *self.extra_shot_splits)
 
     def directions(self) -> tuple[tuple[str, str, str], ...]:
         """Return ``(pair_name, source_subject, target_subject)`` for every run.
@@ -114,6 +120,8 @@ class ExperimentConfig:
     prompts_dir: Path
     output_dir: Path
     options: Mapping[str, Any]
+    shot_counts: tuple[int, ...] = ()
+    num_replicates: int = 1
 
 
 def _read_yaml(path: str | Path) -> dict[str, Any]:
@@ -155,6 +163,30 @@ def _positive(value: int, key: str, where: str) -> int:
     if value <= 0:
         raise ConfigError(f"{where}: '{key}' must be positive, got {value}")
     return value
+
+
+def _int_list(value: Any, key: str, where: str) -> list[int]:
+    """A non-empty list of real ints (YAML booleans and strings are rejected)."""
+    ok = (
+        isinstance(value, list)
+        and value
+        and all(isinstance(v, int) and not isinstance(v, bool) for v in value)
+    )
+    if not ok:
+        raise ConfigError(f"{where}: '{key}' must be a non-empty list of integers, got {value!r}")
+    return value
+
+
+def _parse_shot_counts(data: Mapping[str, Any], num_shots: int, where: str) -> tuple[int, ...]:
+    if "shot_counts" not in data:
+        return (num_shots,)
+    counts = _int_list(data["shot_counts"], "shot_counts", where)
+    if counts != sorted(set(counts)) or counts[0] < 1 or counts[-1] > num_shots:
+        raise ConfigError(
+            f"{where}: 'shot_counts' must be strictly increasing integers in "
+            f"[1, num_shots={num_shots}], got {counts}"
+        )
+    return tuple(counts)
 
 
 def parse_bool_option(options: Mapping[str, Any], key: str, default: bool) -> bool:
@@ -245,6 +277,7 @@ def load_pairs_config(path: str | Path) -> PairsConfig:
         )
     shot_split = _get(data, "shot_split", str, where)
     eval_split = _get(data, "eval_split", str, where)
+    extra_shot_splits = _parse_extra_shot_splits(data, shot_split, eval_split, where)
     if shot_split == eval_split:
         raise ConfigError(
             f"{where}: shot_split and eval_split must differ (both are {shot_split!r}) "
@@ -258,7 +291,26 @@ def load_pairs_config(path: str | Path) -> PairsConfig:
         pairs=tuple(pairs),
         irrelevant_subjects=tuple(irrelevant),
         irrelevant_split=irrelevant_split,
+        extra_shot_splits=extra_shot_splits,
     )
+
+
+def _parse_extra_shot_splits(
+    data: Mapping[str, Any], shot_split: str, eval_split: str, where: str
+) -> tuple[str, ...]:
+    extra = data.get("extra_shot_splits", [])
+    if not isinstance(extra, list) or not all(isinstance(s, str) for s in extra):
+        raise ConfigError(f"{where}: 'extra_shot_splits' must be a list of split names")
+    if eval_split in extra:
+        raise ConfigError(
+            f"{where}: 'extra_shot_splits' must not include eval_split ({eval_split!r}), "
+            "so shot questions can never be evaluated"
+        )
+    if shot_split in extra or len(set(extra)) != len(extra):
+        raise ConfigError(
+            f"{where}: 'extra_shot_splits' repeats a split already used: {[shot_split, *extra]}"
+        )
+    return tuple(extra)
 
 
 def load_experiment_config(path: str | Path) -> ExperimentConfig:
@@ -288,6 +340,11 @@ def load_experiment_config(path: str | Path) -> ExperimentConfig:
     options = data.get("options", {})
     if not isinstance(options, dict):
         raise ConfigError(f"{where}: 'options' must be a mapping")
+    shot_counts = _parse_shot_counts(data, num_shots, where)
+    num_replicates = data.get("num_replicates", 1)
+    if isinstance(num_replicates, bool) or not isinstance(num_replicates, int):
+        raise ConfigError(f"{where}: 'num_replicates' must be an integer, got {num_replicates!r}")
+    _positive(num_replicates, "num_replicates", where)
     return ExperimentConfig(
         name=_get(data, "name", str, where),
         model_config=Path(_get(data, "model_config", str, where)),
@@ -301,6 +358,8 @@ def load_experiment_config(path: str | Path) -> ExperimentConfig:
         prompts_dir=Path(_get(data, "prompts_dir", str, where)),
         output_dir=Path(_get(data, "output_dir", str, where)),
         options=MappingProxyType(dict(options)),
+        shot_counts=shot_counts,
+        num_replicates=num_replicates,
     )
 
 

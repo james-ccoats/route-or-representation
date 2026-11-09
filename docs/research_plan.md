@@ -17,7 +17,9 @@ examples improve accuracy on a target domain, how much of the gain comes from
 - **Domains:** MMLU science subjects. Three to four pairs at varying distance
   (e.g. biology→medicine, chemistry→physics, computer science→biology), each
   run in both directions.
-- **Prompt conditions per target question:**
+- **Shots:** k = 1, 2, 3, 4, 5 (nested), repeated over 3 independently drawn example sets
+  (replicates), with examples pooled from the `dev` and `validation` splits (design_decisions.md D14).
+- **Prompt conditions per target question** (at each k and replicate):
   1. zero-shot
   2. cross-domain few-shot (source-domain examples)
   3. same-domain few-shot (upper reference)
@@ -51,6 +53,8 @@ H3 and H4 are the main claims; H1 and H2 are preconditions checked in the pilot.
   state each router receives on those tokens versus zero-shot, and the share of that
   change in the router's row space against its chance level (design_decisions.md D13).
   Descriptive only; the causal evidence is the forcing experiment.
+- **Gain against k:** the metrics above at each k, averaged over replicates, with the
+  range across replicates shown separately from the question-level interval (D14).
 - **Fraction of gain retained** = (forced − zero_shot) / (few_shot − zero_shot),
   where *forced* is the few-shot prompt with zero-shot routing forced.
 - **Fraction of gain recovered** = (forced − zero_shot) / (few_shot − zero_shot),

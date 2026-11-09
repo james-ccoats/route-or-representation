@@ -6,7 +6,9 @@ name: ladder_reverse_check
 model_config: configs/models/olmoe.yaml
 pairs_config: configs/pairs/mmlu_ladder.yaml
 seed: 0
-num_shots: 5
+num_shots: 5                  # largest k; each replicate draws this many per domain
+shot_counts: [1, 2, 3, 4, 5]  # k values to run (nested: k uses the first k examples)
+num_replicates: 3             # independent example sets, each fixed across all questions
 num_questions_per_target: 144
 conditions: [zero_shot, cross_domain]
 prompts_dir: data/prompts/ladder

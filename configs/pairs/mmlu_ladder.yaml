@@ -15,6 +15,9 @@
 # re-check it, and prefer a routing-based distance once the model has run.
 dataset: cais/mmlu
 shot_split: dev
+# Few-shot examples are drawn from dev + validation pooled (dev alone has 5 questions per
+# subject, so it could give only one example set). Test stays evaluation-only.
+extra_shot_splits: [validation]
 eval_split: test
 run_both_directions: false
 

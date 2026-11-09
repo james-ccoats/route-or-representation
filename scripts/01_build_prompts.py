@@ -1,4 +1,7 @@
-"""Phase 1: build the four prompt conditions for every domain pair and direction.
+"""Phase 1: build the prompt conditions for every domain direction, replicate and shot count.
+
+Each (direction, replicate, k) is one prompt file named like ``bio_med_a2b_r1_k3.jsonl``.
+Example sets are drawn from the pooled shot splits; see D14 in docs/design_decisions.md.
 
 Usage: uv run python scripts/01_build_prompts.py --config configs/experiments/pilot.yaml
 """
@@ -11,14 +14,8 @@ from rr.config import (
     load_pairs_config,
     parse_config_arg,
 )
-from rr.data import load_mmlu_subject, sample_questions
-from rr.prompts import (
-    build_condition_prompts,
-    count_example_tokens,
-    save_prompts,
-    select_irrelevant_examples,
-    verify_target_tokens,
-)
+from rr.data import load_mmlu_subject, load_shot_pool
+from rr.prompt_build import build_direction_prompts, without_overlap, write_runs
 
 
 def main() -> None:
@@ -31,42 +28,35 @@ def main() -> None:
     irrelevant_pool = [
         q for s in pairs.irrelevant_subjects for q in load_mmlu_subject(s, pairs.irrelevant_split)
     ]
-    for run_name, source, target in pairs.directions():
-        source_shots = sample_questions(
-            load_mmlu_subject(source, pairs.shot_split), cfg.num_shots, cfg.seed
-        )
-        target_shots = sample_questions(
-            load_mmlu_subject(target, pairs.shot_split), cfg.num_shots, cfg.seed
-        )
-        eval_qs = sample_questions(
-            load_mmlu_subject(target, pairs.eval_split),
-            cfg.num_questions_per_target,
-            cfg.seed,
-            exclude=target_shots,
-        )
-        # The control depends only on the source shots, so select it once per direction.
-        irrelevant_shots = select_irrelevant_examples(
-            irrelevant_pool,
-            len(source_shots),
-            count_example_tokens(source_shots, tokenizer),
-            tokenizer,
-            cfg.seed,
-        )
-        prompts = []
-        for question in eval_qs:
-            built = list(
-                build_condition_prompts(
-                    question,
-                    source_examples=source_shots,
-                    same_domain_examples=target_shots,
-                    irrelevant_examples=irrelevant_shots,
-                    conditions=cfg.conditions,
-                    tokenizer=tokenizer,
-                ).values()
+    runs = {}
+    for direction, source, target in pairs.directions():
+        eval_pool = load_mmlu_subject(target, pairs.eval_split)
+        full_target_pool = load_shot_pool(target, pairs.shot_splits)
+        target_pool = without_overlap(full_target_pool, eval_pool)
+        if len(target_pool) < len(full_target_pool):
+            print(
+                f"{direction}: dropped {len(full_target_pool) - len(target_pool)} of "
+                f"{len(full_target_pool)} {target} shot questions that also appear in "
+                f"{pairs.eval_split}"
             )
-            verify_target_tokens(built, tokenizer)
-            prompts.extend(built)
-        save_prompts(prompts, cfg.prompts_dir / f"{run_name.replace(':', '_')}.jsonl")
+        built = build_direction_prompts(
+            direction=direction,
+            source_pool=load_shot_pool(source, pairs.shot_splits),
+            target_pool=target_pool,
+            eval_pool=eval_pool,
+            irrelevant_pool=irrelevant_pool,
+            tokenizer=tokenizer,
+            conditions=cfg.conditions,
+            num_shots=cfg.num_shots,
+            shot_counts=cfg.shot_counts,
+            num_replicates=cfg.num_replicates,
+            num_questions=cfg.num_questions_per_target,
+            seed=cfg.seed,
+        )
+        runs.update(built)
+        print(f"{direction}: {len(built)} runs")
+    write_runs(runs, cfg.prompts_dir)
+    print(f"wrote {len(runs)} prompt files to {cfg.prompts_dir}")
 
 
 if __name__ == "__main__":

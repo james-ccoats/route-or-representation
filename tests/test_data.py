@@ -190,3 +190,88 @@ def test_load_mmlu_texts_rejects_an_empty_split(monkeypatch) -> None:
 
     with pytest.raises(ValueError, match="no rows"):
         load_mmlu_texts("test")
+
+
+# --- shot pools and replicate shot sets ----------------------------------------------------
+
+
+def _pool(count: int):
+    return [MCQuestion("s", f"q{i}?", ("a", "b"), 0) for i in range(count)]
+
+
+def test_draw_shot_sets_returns_the_requested_number_of_ordered_sets() -> None:
+    from rr.data import draw_shot_sets
+
+    sets = draw_shot_sets(_pool(20), shots_per_set=5, num_sets=3, seed=0)
+
+    assert len(sets) == 3
+    assert all(len(s) == 5 and len(set(s)) == 5 for s in sets)
+
+
+def test_draw_shot_sets_are_disjoint_while_the_pool_lasts() -> None:
+    from rr.data import draw_shot_sets
+
+    sets = draw_shot_sets(_pool(15), shots_per_set=5, num_sets=3, seed=0)
+
+    flat = [q for s in sets for q in s]
+    assert len(set(flat)) == 15
+
+
+def test_draw_shot_sets_wrap_around_a_small_pool_without_repeating_within_a_set() -> None:
+    from rr.data import draw_shot_sets
+
+    sets = draw_shot_sets(_pool(13), shots_per_set=5, num_sets=3, seed=0)
+
+    assert all(len(set(s)) == 5 for s in sets)
+    assert len(set(sets[0]) & set(sets[1])) == 0
+    assert len(set(sets[2]) & set(sets[0])) == 2  # only the wrapped-around items repeat
+
+
+def test_draw_shot_sets_is_deterministic_and_seed_dependent() -> None:
+    from rr.data import draw_shot_sets
+
+    first = draw_shot_sets(_pool(20), 5, 2, seed=1)
+
+    assert draw_shot_sets(_pool(20), 5, 2, seed=1) == first
+    assert draw_shot_sets(_pool(20), 5, 2, seed=2) != first
+
+
+def test_draw_shot_sets_do_not_depend_on_pool_order_of_other_seeds() -> None:
+    from rr.data import draw_shot_sets
+
+    sets = draw_shot_sets(_pool(20), 5, 1, seed=0)
+
+    assert set(sets[0]) <= set(_pool(20))
+
+
+def test_draw_shot_sets_reject_a_pool_smaller_than_one_set() -> None:
+    from rr.data import draw_shot_sets
+
+    with pytest.raises(ValueError, match="pool"):
+        draw_shot_sets(_pool(4), shots_per_set=5, num_sets=1, seed=0)
+
+
+@pytest.mark.parametrize("shots,sets", [(0, 1), (5, 0), (-1, 1)])
+def test_draw_shot_sets_reject_non_positive_sizes(shots, sets) -> None:
+    from rr.data import draw_shot_sets
+
+    with pytest.raises(ValueError):
+        draw_shot_sets(_pool(20), shots, sets, seed=0)
+
+
+def test_load_shot_pool_concatenates_splits_in_order_and_drops_duplicates(monkeypatch) -> None:
+    from rr.data import load_shot_pool
+
+    by_split = {
+        "dev": [_row(question="one"), _row(question="two")],
+        "validation": [_row(question="two"), _row(question="three")],
+    }
+
+    def fake_load_dataset(name, subject, split, revision=None):
+        return by_split[split]
+
+    monkeypatch.setattr("datasets.load_dataset", fake_load_dataset)
+
+    pool = load_shot_pool("college_biology", ("dev", "validation"))
+
+    assert [q.question for q in pool] == ["one", "two", "three"]

@@ -6,7 +6,7 @@ re-running the same command after a crash or preemption continues where it stopp
 Usage: uv run python scripts/02_run_pilot.py --config configs/experiments/pilot.yaml
 """
 
-from rr.analysis import format_pilot_summary, load_results
+from rr.analysis import load_results
 from rr.config import (
     load_experiment_config,
     load_model_config,
@@ -15,6 +15,7 @@ from rr.config import (
 )
 from rr.models import inspect_moe_structure, load_model, model_provenance, verify_structure
 from rr.pilot import run_prompt_file
+from rr.shot_curves import summarize_pilot_results
 
 
 def main() -> None:
@@ -44,7 +45,7 @@ def main() -> None:
             show_progress=True,
         )
         print(f"{path.stem}: evaluated {evaluated} questions")
-    print(format_pilot_summary(load_results(cfg.output_dir)))
+    print(summarize_pilot_results(load_results(cfg.output_dir), seed=cfg.seed))
 
 
 if __name__ == "__main__":
