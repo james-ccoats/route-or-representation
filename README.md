@@ -65,6 +65,9 @@ uv run python scripts/04_reverse_check.py  --config configs/experiments/reverse_
 uv run python scripts/05_make_figures.py   --config configs/experiments/force_routing.yaml
 ```
 
+For the ladder, `ladder_force_routing.yaml` and `ladder_reverse_check.yaml` run `03` and
+`04` on the prompts that `ladder_pilot.yaml` built (no second `01` run needed).
+
 `ladder_pilot` is the fixed-target distance ladder: one target (`college_biology`) and
 five sources at increasing distance, so the target questions are identical across rungs
 (see D12). `06_measure_distance.py` prints a model-free lexical distance beside each

@@ -1,0 +1,17 @@
+# Reverse check on the fixed-target distance ladder: run the zero-shot prompt with
+# few-shot routing forced in on the target-question tokens.
+# Metric: fraction of gain recovered = (forced - zero_shot) / (few_shot - zero_shot).
+# Reads the prompts built by ladder_pilot.yaml.
+name: ladder_reverse_check
+model_config: configs/models/olmoe.yaml
+pairs_config: configs/pairs/mmlu_ladder.yaml
+seed: 0
+num_shots: 5
+num_questions_per_target: 144
+conditions: [zero_shot, cross_domain]
+prompts_dir: data/prompts/ladder
+output_dir: results/ladder_reverse_check
+options:
+  force_scope: target_question_tokens
+  force_mixing_weights: false
+  layers: null

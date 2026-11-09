@@ -1,0 +1,21 @@
+# Forcing experiment on the fixed-target distance ladder (configs/pairs/mmlu_ladder.yaml).
+# Run the few-shot prompt but force zero-shot routing on the target-question tokens.
+# Metric: fraction of gain retained = (forced - zero_shot) / (few_shot - zero_shot),
+# per rung, on the same college_biology questions. Reads the prompts built by
+# ladder_pilot.yaml, so run 01 with that config first. Only interpret rungs where the
+# few-shot gain is clearly nonzero (see the ladder pilot).
+name: ladder_force_routing
+model_config: configs/models/olmoe.yaml
+pairs_config: configs/pairs/mmlu_ladder.yaml
+seed: 0
+num_shots: 5
+num_questions_per_target: 144   # all of college_biology's test questions
+conditions: [zero_shot, cross_domain]
+prompts_dir: data/prompts/ladder
+output_dir: results/ladder_force_routing
+options:
+  force_scope: target_question_tokens
+  force_mixing_weights: false
+  layers: null
+  sanity_identity_check: true
+  sanity_random_check: true
