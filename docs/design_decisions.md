@@ -350,3 +350,58 @@ and the cross-domain examples. Cross-domain example tokens are 274 (virology), 3
 **Rejected:** picking sources by intuition alone (the labels did not separate in the
 pilot); deriving distance from the zero-shot accuracy matrix (needs the model and
 conflates distance with difficulty).
+
+---
+
+## D13. Measuring the hidden-state shift directly
+
+**Status:** implemented (2026-11-09) as an opt-in pilot measurement; not yet run on the
+real model
+
+**Context:** the forcing experiment holds target-token *routing* fixed and asks how much
+of the few-shot gain survives. That infers a hidden-state ("representation") effect as
+the residual; nothing measured it. A high retained fraction means the gain does not need
+the routing change, which is weaker than "the hidden states carry it".
+
+**What is measured (`rr.hidden`):** at the aligned target-question tokens, the state each
+router receives in a few-shot prompt versus the zero-shot prompt. In OLMoE that state is
+`post_attention_layernorm(residual after attention)`, the RMS-normalised residual stream,
+which is exactly what the router multiplies by its weights (`logits = W h`). Recorded
+inputs were checked against the model's own router logits on the tiny model. Per layer:
+- `relative_l2`: mean over tokens of `|delta| / |h0|`;
+- `cosine_distance`: mean over tokens of `1 - cos(h0, h1)`;
+- `router_visible_share`: the fraction of the shift's squared norm in the row space of
+  `W` (directions that can change the routing logits), pooled over tokens; the rest is
+  in the null space of `W` and cannot change which experts are chosen;
+- `router_visible_chance`: `rank(W) / hidden_size`, the share a random direction would have.
+
+Only these summaries are stored (in `ResultRecord.hidden_shift`), never raw vectors.
+Enable with `record_hidden_states: true` in the pilot configs (set for both); the setting
+is recorded in the run manifest (D8), so toggling it on resume is refused. It adds no
+forward passes. Memory is transient: `layers * tokens * hidden * 4` bytes per pass, about
+105 MB for an 800-token OLMoE prompt.
+
+**How to read it:**
+- **Compare the visible share with chance, not with zero.** `W` has at most one row per
+  expert (64) against about 2,048 hidden dimensions, so a random shift puts only about 3%
+  of its energy in the row space. A small visible share is the default.
+- **Compare with the irrelevant control.** Any extra context shifts the state. The pilot
+  contrasts report `hidden_shift` and `visible_share_excess` for cross-domain minus
+  irrelevant (and same-domain minus irrelevant for the first), which is the length-matched
+  baseline.
+- **It is descriptive, not causal.** A large shift does not show it caused the gain. The
+  causal evidence still has to come from interventions.
+
+**Limits:**
+- The zero-shot state is a reference, not a counterfactual: the few-shot prompt differs at
+  every earlier token, so the states differ through attention by construction.
+- Target tokens only, one forward pass each, so the downstream effect of forced routing on
+  later layers is not captured here.
+- The layer average in the summary table hides structure; per-layer values are in the
+  records for Phase 4.
+- Multiple comparisons are not corrected (D10).
+
+**Not done:** the matching causal test, which applies only the router-invisible part of
+the shift with routing held fixed (the complement of what forcing does). Build it only if
+the pilot shows a shift worth testing. A routing-based distance between subjects
+(D12) would reuse the same recorded router inputs.

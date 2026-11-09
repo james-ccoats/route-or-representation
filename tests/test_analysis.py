@@ -50,6 +50,7 @@ from rr.analysis import (  # noqa: E402
     paired_bootstrap_difference,
     pilot_contrasts,
 )
+from rr.hidden import HiddenShift  # noqa: E402
 from rr.prompts import PromptCondition  # noqa: E402
 from rr.results import ResultRecord, append_records  # noqa: E402
 
@@ -62,9 +63,10 @@ ZERO, CROSS, SAME, IRRELEVANT = (
 CORRECT_LOGPROB, WRONG_LOGPROB = -0.5, -1.5
 
 
-def rec(run: str, index: int, condition: PromptCondition, correct: bool, jaccard=None):
+def rec(run: str, index: int, condition: PromptCondition, correct: bool, jaccard=None, hidden=None):
     if condition is ZERO:
         jaccard = None
+        hidden = None
     elif jaccard is None:
         jaccard = (0.5, 0.5)
     return ResultRecord(
@@ -79,6 +81,7 @@ def rec(run: str, index: int, condition: PromptCondition, correct: bool, jaccard
         num_examples=0 if condition is ZERO else 2,
         example_tokens=0 if condition is ZERO else 10,
         jaccard_per_layer=jaccard,
+        hidden_shift=hidden,
     )
 
 
@@ -204,4 +207,65 @@ def test_format_pilot_summary_mentions_runs_conditions_and_contrasts() -> None:
     text = format_pilot_summary(_pilot_records())
 
     for expected in ("r1", "zero_shot", "cross_domain", "accuracy: cross_domain - zero_shot"):
+        assert expected in text
+
+
+# --- hidden-state shift summaries ----------------------------------------------------------------
+
+
+def shift(relative: float, visible: float, chance: float = 0.03) -> HiddenShift:
+    return HiddenShift(
+        relative_l2=(relative, relative),
+        cosine_distance=(0.1, 0.1),
+        router_visible_share=(visible, visible),
+        router_visible_chance=(chance, chance),
+    )
+
+
+def hidden_records():
+    records = []
+    for index in range(4):
+        records += [
+            rec("r1", index, ZERO, False),
+            rec("r1", index, CROSS, True, hidden=shift(0.8, 0.10)),
+            rec("r1", index, SAME, True, hidden=shift(0.6, 0.06)),
+            rec("r1", index, IRRELEVANT, False, hidden=shift(0.3, 0.04)),
+        ]
+    return records
+
+
+def test_mean_hidden_shift_by_condition_averages_over_layers_and_questions() -> None:
+    from rr.analysis import HiddenSummary, mean_hidden_shift_by_condition
+
+    result = mean_hidden_shift_by_condition(hidden_records())
+
+    assert result[("r1", CROSS)] == HiddenSummary(
+        relative_l2=pytest.approx(0.8),
+        router_visible_share=pytest.approx(0.10),
+        router_visible_chance=pytest.approx(0.03),
+    )
+    assert ("r1", ZERO) not in result  # zero-shot is the baseline
+
+
+def test_hidden_contrasts_compare_relevant_examples_with_the_length_matched_control() -> None:
+    contrasts = {c.name: c for c in pilot_contrasts(hidden_records())}
+
+    assert contrasts["hidden_shift: cross_domain - irrelevant"].mean_diff == pytest.approx(0.5)
+    assert contrasts["hidden_shift: same_domain - irrelevant"].mean_diff == pytest.approx(0.3)
+    # excess over chance: cross (0.10 - 0.03) minus irrelevant (0.04 - 0.03)
+    assert contrasts["visible_share_excess: cross_domain - irrelevant"].mean_diff == pytest.approx(
+        0.06
+    )
+
+
+def test_hidden_contrasts_are_absent_when_nothing_was_recorded() -> None:
+    names = {c.name for c in pilot_contrasts(_pilot_records())}
+
+    assert not any(name.startswith(("hidden_shift", "visible_share")) for name in names)
+
+
+def test_summary_shows_the_hidden_shift_columns() -> None:
+    text = format_pilot_summary(hidden_records())
+
+    for expected in ("h-shift", "visible", "chance", "hidden_shift: cross_domain - irrelevant"):
         assert expected in text

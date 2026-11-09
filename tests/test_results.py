@@ -7,6 +7,7 @@ from dataclasses import replace
 
 import pytest
 
+from rr.hidden import HiddenShift
 from rr.prompts import PromptCondition
 from rr.results import (
     ResultRecord,
@@ -195,3 +196,48 @@ def test_records_written_before_the_intervention_field_still_load() -> None:
 def test_empty_intervention_is_rejected() -> None:
     with pytest.raises(ValueError, match="intervention"):
         make_record(intervention="")
+
+
+# --- hidden-state shift on the record ------------------------------------------------------------
+
+
+def hidden() -> HiddenShift:
+    return HiddenShift(
+        relative_l2=(0.5, 0.7),
+        cosine_distance=(0.1, 0.2),
+        router_visible_share=(0.05, 0.1),
+        router_visible_chance=(0.03, 0.03),
+    )
+
+
+def test_hidden_shift_defaults_to_none_and_round_trips() -> None:
+    assert make_record().hidden_shift is None
+    record = make_record(hidden_shift=hidden())
+
+    assert ResultRecord.from_dict(record.to_dict()) == record
+    assert json.loads(json.dumps(record.to_dict()))["hidden_shift"]["relative_l2"] == [0.5, 0.7]
+
+
+def test_records_without_a_hidden_shift_field_still_load() -> None:
+    data = make_record().to_dict()
+    del data["hidden_shift"]
+
+    assert ResultRecord.from_dict(data).hidden_shift is None
+
+
+def test_a_malformed_hidden_shift_in_a_record_is_rejected() -> None:
+    data = make_record(hidden_shift=hidden()).to_dict()
+    data["hidden_shift"]["router_visible_share"] = [0.1, 7.0]
+
+    with pytest.raises(ValueError, match="router_visible_share"):
+        ResultRecord.from_dict(data)
+
+
+def test_hidden_shift_must_be_a_hiddenshift() -> None:
+    with pytest.raises(ValueError, match="hidden_shift"):
+        make_record(hidden_shift={"relative_l2": [0.1]})
+
+
+def test_hidden_shift_and_jaccard_must_cover_the_same_number_of_layers_when_both_present() -> None:
+    with pytest.raises(ValueError, match="hidden_shift"):
+        make_record(hidden_shift=hidden(), jaccard_per_layer=(0.5, 0.5, 0.5))

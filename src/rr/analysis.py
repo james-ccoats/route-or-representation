@@ -153,10 +153,33 @@ def _mean_jaccard(record: ResultRecord) -> float | None:
     return None if record.jaccard_per_layer is None else float(np.mean(record.jaccard_per_layer))
 
 
+def _hidden_mean(field: str) -> Callable[[ResultRecord], float | None]:
+    """Mean over layers of one per-layer ``HiddenShift`` field; ``None`` if not recorded."""
+
+    def extract(record: ResultRecord) -> float | None:
+        if record.hidden_shift is None:
+            return None
+        return float(np.mean(getattr(record.hidden_shift, field)))
+
+    return extract
+
+
+def _visible_share_excess(record: ResultRecord) -> float | None:
+    """How much more of the shift the router can see than a random direction would give."""
+    shift = record.hidden_shift
+    if shift is None:
+        return None
+    return float(np.mean(shift.router_visible_share) - np.mean(shift.router_visible_chance))
+
+
 METRICS: Mapping[str, Callable[[ResultRecord], float | None]] = {
     "accuracy": lambda r: float(r.is_correct),
     "correct_logprob": lambda r: r.correct_logprob,
     "jaccard": _mean_jaccard,
+    "hidden_shift": _hidden_mean("relative_l2"),
+    "visible_share": _hidden_mean("router_visible_share"),
+    "visible_chance": _hidden_mean("router_visible_chance"),
+    "visible_share_excess": _visible_share_excess,
 }
 
 # (metric, condition_a, condition_b): reports metric(a) - metric(b).
@@ -170,6 +193,13 @@ PILOT_CONTRASTS: tuple[tuple[str, PromptCondition, PromptCondition], ...] = (
     ("correct_logprob", PromptCondition.CROSS_DOMAIN, PromptCondition.ZERO_SHOT),
     ("jaccard", PromptCondition.IRRELEVANT, PromptCondition.CROSS_DOMAIN),
     ("jaccard", PromptCondition.IRRELEVANT, PromptCondition.SAME_DOMAIN),
+    # Hidden-state shift (only when recorded). Larger shift = more change, so these read
+    # "relevant minus irrelevant": > 0 means relevant examples moved the state more than
+    # length-matched irrelevant ones. Visible-share excess > 0 means the shift points into
+    # the part of the state space the router can see more than a random direction would.
+    ("hidden_shift", PromptCondition.CROSS_DOMAIN, PromptCondition.IRRELEVANT),
+    ("hidden_shift", PromptCondition.SAME_DOMAIN, PromptCondition.IRRELEVANT),
+    ("visible_share_excess", PromptCondition.CROSS_DOMAIN, PromptCondition.IRRELEVANT),
 )
 
 
@@ -206,6 +236,36 @@ def mean_jaccard_by_condition(records: Sequence[ResultRecord]) -> dict[RunCondit
     Averaged over layers, then questions. Zero-shot has no entry (it is the baseline).
     """
     return _mean_by_run_condition(records, "jaccard")
+
+
+@dataclass(frozen=True)
+class HiddenSummary:
+    """Mean hidden-state shift from zero-shot for one ``(run, condition)``.
+
+    All three are averaged over layers, then questions. ``router_visible_share`` is only
+    informative next to ``router_visible_chance``, the share a random direction would have.
+    """
+
+    relative_l2: float
+    router_visible_share: float
+    router_visible_chance: float
+
+
+def mean_hidden_shift_by_condition(
+    records: Sequence[ResultRecord],
+) -> dict[RunCondition, HiddenSummary]:
+    """Mean hidden-state shift per ``(run, condition)``; zero-shot and unrecorded are absent."""
+    shift = _mean_by_run_condition(records, "hidden_shift")
+    share = _mean_by_run_condition(records, "visible_share")
+    chance = _mean_by_run_condition(records, "visible_chance")
+    return {
+        key: HiddenSummary(
+            relative_l2=shift[key],
+            router_visible_share=share[key],
+            router_visible_chance=chance[key],
+        )
+        for key in shift
+    }
 
 
 def paired_bootstrap_difference(
@@ -302,11 +362,22 @@ def format_pilot_summary(records: Sequence[ResultRecord], *, seed: int = 0) -> s
     accuracy = accuracy_by_condition(records)
     logprob = _mean_by_run_condition(records, "correct_logprob")
     jaccard = mean_jaccard_by_condition(records)
-    lines = [f"{'run':<22}{'condition':<14}{'accuracy':>9}{'logprob':>9}{'jaccard':>9}"]
+    hidden = mean_hidden_shift_by_condition(records)
+    lines = [
+        f"{'run':<22}{'condition':<14}{'accuracy':>9}{'logprob':>9}{'jaccard':>9}"
+        f"{'h-shift':>9}{'visible':>9}{'chance':>9}"
+    ]
     for key in sorted(accuracy, key=lambda k: (k[0], list(PromptCondition).index(k[1]))):
-        shift = f"{jaccard[key]:.3f}" if key in jaccard else "-"
+        overlap = f"{jaccard[key]:.3f}" if key in jaccard else "-"
+        h = hidden.get(key)
+        columns = (
+            f"{h.relative_l2:>9.3f}{h.router_visible_share:>9.3f}{h.router_visible_chance:>9.3f}"
+            if h
+            else f"{'-':>9}{'-':>9}{'-':>9}"
+        )
         lines.append(
-            f"{key[0]:<22}{key[1].value:<14}{accuracy[key]:>9.3f}{logprob[key]:>9.3f}{shift:>9}"
+            f"{key[0]:<22}{key[1].value:<14}{accuracy[key]:>9.3f}{logprob[key]:>9.3f}"
+            f"{overlap:>9}{columns}"
         )
     lines.append("")
     lines.append("Paired contrasts (mean difference [95% bootstrap interval], n questions):")

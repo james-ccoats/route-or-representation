@@ -167,3 +167,65 @@ def test_recorded_probs_are_renormalized_when_the_model_normalizes(input_ids) ->
 
     sums = recorder.get_record().router_probs.sum(dim=-1)
     assert torch.allclose(sums, torch.ones_like(sums), atol=1e-6)
+
+
+# --- recording the router's input (the hidden state it routes on) --------------------------------
+
+
+def test_router_inputs_are_not_recorded_unless_asked(tiny_moe, input_ids) -> None:
+    with RoutingRecorder(tiny_moe, TINY_ROUTER_NAMES, TINY_TOP_K) as recorder:
+        tiny_moe(input_ids=input_ids)
+
+    assert recorder.get_record().router_inputs is None
+
+
+def test_recorded_router_inputs_are_what_the_router_computed_its_logits_from(input_ids) -> None:
+    import torch.nn.functional as functional
+
+    model = build_tiny_moe()  # own model: output_router_logits leaves a library hook behind
+    with RoutingRecorder(model, TINY_ROUTER_NAMES, TINY_TOP_K, record_inputs=True) as recorder:
+        output = model(input_ids=input_ids, output_router_logits=True)
+
+    record = recorder.get_record()
+
+    hidden = model.config.hidden_size
+    assert record.router_inputs.shape == (TINY_NUM_LAYERS, input_ids.shape[1], hidden)
+    for layer, logits in enumerate(output.router_logits):
+        weight = model.get_submodule(TINY_ROUTER_NAMES[layer]).weight
+        expected = functional.linear(record.router_inputs[layer], weight)
+        assert torch.allclose(expected, logits, atol=1e-5)
+
+
+def test_router_inputs_are_detached_float32_on_the_cpu(tiny_moe, input_ids) -> None:
+    with RoutingRecorder(tiny_moe, TINY_ROUTER_NAMES, TINY_TOP_K, record_inputs=True) as recorder:
+        tiny_moe(input_ids=input_ids)
+
+    inputs = recorder.get_record().router_inputs
+
+    assert inputs.dtype == torch.float32
+    assert inputs.device.type == "cpu"
+    assert not inputs.requires_grad
+
+
+def test_recording_router_inputs_does_not_change_model_outputs(tiny_moe, input_ids) -> None:
+    with torch.inference_mode():
+        baseline = tiny_moe(input_ids=input_ids).logits
+        with RoutingRecorder(tiny_moe, TINY_ROUTER_NAMES, TINY_TOP_K, record_inputs=True):
+            recorded = tiny_moe(input_ids=input_ids).logits
+
+    assert torch.equal(baseline, recorded)
+
+
+def test_select_positions_also_slices_the_router_inputs(tiny_moe, input_ids) -> None:
+    with RoutingRecorder(tiny_moe, TINY_ROUTER_NAMES, TINY_TOP_K, record_inputs=True) as recorder:
+        tiny_moe(input_ids=input_ids)
+    record = recorder.get_record()
+
+    selected = record.select_positions([3, 1])
+
+    assert selected.router_inputs.shape[1] == 2
+    assert torch.equal(selected.router_inputs[:, 0], record.router_inputs[:, 3])
+
+
+def test_select_positions_keeps_absent_router_inputs_absent() -> None:
+    assert _record().select_positions([0]).router_inputs is None

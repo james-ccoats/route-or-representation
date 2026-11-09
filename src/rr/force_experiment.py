@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from rr.config import parse_bool_option
 from rr.pilot import score_with_routing
 from rr.prompts import BuiltPrompt, PromptCondition
 from rr.results import NO_INTERVENTION, ResultRecord
@@ -290,14 +291,6 @@ def run_forcing_file(
         },
         show_progress=show_progress,
     )
-
-
-def parse_bool_option(options: Mapping[str, Any], key: str, default: bool) -> bool:
-    """Read a boolean option, rejecting non-booleans (YAML ``yes`` strings, ints, ...)."""
-    value = options.get(key, default)
-    if not isinstance(value, bool):
-        raise ValueError(f"{key}: must be true or false, got {value!r}")
-    return value
 
 
 def parse_forcing_options(options: Mapping[str, Any], *, seed: int) -> ForcingOptions:

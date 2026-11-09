@@ -157,6 +157,14 @@ def _positive(value: int, key: str, where: str) -> int:
     return value
 
 
+def parse_bool_option(options: Mapping[str, Any], key: str, default: bool) -> bool:
+    """Read a boolean option, rejecting non-booleans (YAML ``yes`` strings, ints, ...)."""
+    value = options.get(key, default)
+    if not isinstance(value, bool):
+        raise ConfigError(f"{key}: must be true or false, got {value!r}")
+    return value
+
+
 def load_model_config(path: str | Path) -> ModelConfig:
     """Load and validate a model config (e.g. ``configs/models/olmoe.yaml``).
 

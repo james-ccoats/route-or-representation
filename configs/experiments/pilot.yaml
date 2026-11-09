@@ -13,3 +13,4 @@ output_dir: results/pilot
 options:
   record_routing: true        # record top-k routing on target-question tokens
   jaccard_per_layer: true
+  record_hidden_states: true  # keep each router's input; save per-layer shift vs zero-shot

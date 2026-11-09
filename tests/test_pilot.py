@@ -210,3 +210,96 @@ def test_run_prompt_file_is_deterministic(tmp_path, model, structure, tokenizer)
 
     assert read_records(first) == read_records(second)
     assert torch.is_grad_enabled()  # scoring must not leak inference-mode state
+
+
+# --- hidden-state shift --------------------------------------------------------------------------
+
+from rr.hidden import HiddenShiftMeter  # noqa: E402
+from rr.manifest import manifest_path_for as _manifest_path  # noqa: E402
+
+
+def make_meter(model, structure) -> HiddenShiftMeter:
+    return HiddenShiftMeter.from_model(model, structure.router_module_names)
+
+
+def test_hidden_shift_is_measured_for_every_condition_but_zero_shot(
+    model, structure, tokenizer
+) -> None:
+    records = evaluate_group(
+        model,
+        tokenizer,
+        structure,
+        build_group(tokenizer),
+        run="r",
+        question_index=0,
+        meter=make_meter(model, structure),
+    )
+
+    by_condition = {r.condition: r for r in records}
+    assert by_condition[PromptCondition.ZERO_SHOT].hidden_shift is None
+    hidden_size = model.config.hidden_size
+    for condition in CONDITIONS[1:]:
+        shift = by_condition[condition].hidden_shift
+        assert shift is not None
+        assert len(shift.relative_l2) == structure.num_layers
+        assert all(value > 0 for value in shift.relative_l2)  # extra context moves the state
+        assert shift.router_visible_chance[0] == pytest.approx(structure.num_experts / hidden_size)
+
+
+def test_measuring_the_hidden_shift_leaves_scores_and_routing_unchanged(
+    model, structure, tokenizer
+) -> None:
+    group = build_group(tokenizer)
+    plain = evaluate_group(model, tokenizer, structure, group, run="r", question_index=0)
+    measured = evaluate_group(
+        model,
+        tokenizer,
+        structure,
+        group,
+        run="r",
+        question_index=0,
+        meter=make_meter(model, structure),
+    )
+
+    assert all(r.hidden_shift is None for r in plain)
+    for a, b in zip(plain, measured, strict=True):
+        assert a.option_logprobs == b.option_logprobs
+        assert a.jaccard_per_layer == b.jaccard_per_layer
+
+
+def test_hidden_shift_is_written_by_a_run_when_enabled(
+    tmp_path, model, structure, tokenizer
+) -> None:
+    prompts_path = write_prompt_file(tmp_path, tokenizer, count=2)
+    output = tmp_path / "out" / "bio_med_a2b.jsonl"
+
+    run_prompt_file(model, tokenizer, structure, prompts_path, output, record_hidden_states=True)
+
+    records = read_records(output)
+    few_shot = [r for r in records if r.condition is not PromptCondition.ZERO_SHOT]
+    assert all(r.hidden_shift is not None for r in few_shot)
+    assert all(r.hidden_shift is None for r in records if r.condition is PromptCondition.ZERO_SHOT)
+
+
+def test_hidden_shift_is_not_recorded_by_default(tmp_path, model, structure, tokenizer) -> None:
+    prompts_path = write_prompt_file(tmp_path, tokenizer, count=1)
+    output = tmp_path / "out" / "bio_med_a2b.jsonl"
+
+    run_prompt_file(model, tokenizer, structure, prompts_path, output)
+
+    assert all(r.hidden_shift is None for r in read_records(output))
+
+
+def test_toggling_hidden_shift_recording_between_resumes_is_refused(
+    tmp_path, model, structure, tokenizer
+) -> None:
+    prompts_path = write_prompt_file(tmp_path, tokenizer, count=1)
+    output = tmp_path / "out" / "bio_med_a2b.jsonl"
+    run_prompt_file(model, tokenizer, structure, prompts_path, output)
+
+    with pytest.raises(ValueError, match="record_hidden_states"):
+        run_prompt_file(
+            model, tokenizer, structure, prompts_path, output, record_hidden_states=True
+        )
+
+    assert _manifest_path(output).exists()

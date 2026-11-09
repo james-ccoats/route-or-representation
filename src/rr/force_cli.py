@@ -18,12 +18,12 @@ from rr.config import (
     ExperimentConfig,
     load_experiment_config,
     load_model_config,
+    parse_bool_option,
     parse_config_arg,
 )
 from rr.force_analysis import format_force_summary
 from rr.force_experiment import (
     ForcingPlan,
-    parse_bool_option,
     parse_forcing_options,
     plans_for_force_routing,
     plans_for_reverse_check,

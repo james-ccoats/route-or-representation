@@ -47,6 +47,10 @@ H3 and H4 are the main claims; H1 and H2 are preconditions checked in the pilot.
   sensitive). See design_decisions.md.
 - **Routing shift:** per-layer Jaccard overlap of top-k expert sets on aligned
   target-question tokens.
+- **Hidden-state shift (supporting, pilot):** per-layer size of the change in the
+  state each router receives on those tokens versus zero-shot, and the share of that
+  change in the router's row space against its chance level (design_decisions.md D13).
+  Descriptive only; the causal evidence is the forcing experiment.
 - **Fraction of gain retained** = (forced − zero_shot) / (few_shot − zero_shot),
   where *forced* is the few-shot prompt with zero-shot routing forced.
 - **Fraction of gain recovered** = (forced − zero_shot) / (few_shot − zero_shot),

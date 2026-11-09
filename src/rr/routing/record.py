@@ -44,10 +44,14 @@ class RoutingRecord:
         router_probs: ``[num_layers, num_tokens, top_k]`` float tensor of the
             router probability (mixing weight) of each selected expert, in the
             same order as ``topk_indices``.
+        router_inputs: ``[num_layers, num_tokens, hidden_size]`` float32 CPU tensor of the
+            hidden state each router received (the vector it multiplies by its weights),
+            or ``None`` if the recorder was not asked to keep it.
     """
 
     topk_indices: torch.Tensor
     router_probs: torch.Tensor
+    router_inputs: torch.Tensor | None = None
 
     def select_positions(self, positions: Sequence[int]) -> RoutingRecord:
         """Return a new record restricted to the given token positions."""
@@ -60,6 +64,9 @@ class RoutingRecord:
         return RoutingRecord(
             topk_indices=self.topk_indices.index_select(1, index),
             router_probs=self.router_probs.index_select(1, index),
+            router_inputs=(
+                None if self.router_inputs is None else self.router_inputs.index_select(1, index)
+            ),
         )
 
 
@@ -73,26 +80,37 @@ class RoutingRecorder:
     """
 
     def __init__(
-        self, model: PreTrainedModel, router_module_names: Sequence[str], top_k: int
+        self,
+        model: PreTrainedModel,
+        router_module_names: Sequence[str],
+        top_k: int,
+        *,
+        record_inputs: bool = False,
     ) -> None:
         """
         Args:
             model: The loaded MoE model.
             router_module_names: One router module name per layer, in layer order.
             top_k: Number of experts selected per token.
+            record_inputs: Also keep each router's input hidden state (float32, on the
+                CPU). This costs ``layers * tokens * hidden_size * 4`` bytes per pass,
+                so enable it only when the hidden-state shift is being measured.
         """
         self._model = model
         self._router_module_names = tuple(router_module_names)
         self._top_k = top_k
+        self._record_inputs = record_inputs
         self._handles: list[torch.utils.hooks.RemovableHandle] = []
         self._indices: list[list[torch.Tensor]] = []
         self._probs: list[list[torch.Tensor]] = []
+        self._inputs: list[list[torch.Tensor]] = []
 
     def __enter__(self) -> RoutingRecorder:
         """Attach a forward hook to every router module."""
         routers = resolve_routers(self._model, self._router_module_names)
         self._indices = [[] for _ in routers]
         self._probs = [[] for _ in routers]
+        self._inputs = [[] for _ in routers]
         try:
             self._handles.append(attach_batch_size_guard(self._model))
             for layer, router in enumerate(routers):
@@ -124,6 +142,9 @@ class RoutingRecorder:
         return RoutingRecord(
             topk_indices=torch.stack([buffer[0] for buffer in self._indices]),
             router_probs=torch.stack([buffer[0] for buffer in self._probs]),
+            router_inputs=(
+                torch.stack([buffer[0] for buffer in self._inputs]) if self._record_inputs else None
+            ),
         )
 
     def _make_hook(self, layer: int):
@@ -138,6 +159,15 @@ class RoutingRecorder:
                 )
             self._indices[layer].append(indices.detach().cpu().clone())
             self._probs[layer].append(scores.detach().float().cpu())
+            if self._record_inputs:
+                if not args:
+                    raise RuntimeError(
+                        f"cannot read the input of router {name!r}: it was called with keyword "
+                        "arguments only"
+                    )
+                self._inputs[layer].append(
+                    args[0].detach().to(device="cpu", dtype=torch.float32, copy=True)
+                )
 
         return hook
 

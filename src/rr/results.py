@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from rr.hidden import HiddenShift
 from rr.prompts import PromptCondition
 
 RESULT_SUFFIX = ".jsonl"
@@ -50,6 +51,9 @@ class ResultRecord:
         intervention: ``"none"`` for a plain run, otherwise what was done to the
             routing, e.g. ``"force_zero_shot_routing"`` (the prompt of ``condition``
             was run with the zero-shot prompt's routing forced on its target tokens).
+        hidden_shift: Per-layer shift of the hidden state each router received on the
+            aligned target tokens, relative to the zero-shot prompt (see :mod:`rr.hidden`);
+            ``None`` for the zero-shot prompt itself or when it was not recorded.
     """
 
     run: str
@@ -64,6 +68,7 @@ class ResultRecord:
     example_tokens: int
     jaccard_per_layer: tuple[float, ...] | None
     intervention: str = NO_INTERVENTION
+    hidden_shift: HiddenShift | None = None
 
     def __post_init__(self) -> None:
         _require(isinstance(self.run, str) and self.run != "", "run", "must be a non-empty string")
@@ -101,6 +106,17 @@ class ResultRecord:
         )
         _require(_is_count(self.num_examples), "num_examples", "must be a non-negative int")
         _require(_is_count(self.example_tokens), "example_tokens", "must be a non-negative int")
+        _require(
+            self.hidden_shift is None or isinstance(self.hidden_shift, HiddenShift),
+            "hidden_shift",
+            "must be a HiddenShift or None",
+        )
+        if self.hidden_shift is not None and self.jaccard_per_layer is not None:
+            _require(
+                len(self.hidden_shift.relative_l2) == len(self.jaccard_per_layer),
+                "hidden_shift",
+                "must cover the same number of layers as jaccard_per_layer",
+            )
         if self.jaccard_per_layer is not None:
             _require(
                 len(self.jaccard_per_layer) > 0
@@ -126,6 +142,7 @@ class ResultRecord:
             "jaccard_per_layer": (
                 None if self.jaccard_per_layer is None else list(self.jaccard_per_layer)
             ),
+            "hidden_shift": None if self.hidden_shift is None else self.hidden_shift.to_dict(),
         }
 
     @classmethod
@@ -157,6 +174,11 @@ class ResultRecord:
             example_tokens=_field(data, "example_tokens"),
             jaccard_per_layer=None if jaccard is None else tuple(jaccard),
             intervention=data.get("intervention", NO_INTERVENTION),
+            hidden_shift=(
+                None
+                if data.get("hidden_shift") is None
+                else HiddenShift.from_dict(data["hidden_shift"])
+            ),
         )
 
 

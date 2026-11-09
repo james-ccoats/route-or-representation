@@ -70,6 +70,12 @@ five sources at increasing distance, so the target questions are identical acros
 (see D12). `06_measure_distance.py` prints a model-free lexical distance beside each
 run's expected label; it is a sanity check on the labels, not the explanatory variable.
 
+With `record_hidden_states: true` (set in both pilot configs), `02` also records the
+hidden state each router receives on the target-question tokens and saves per-layer
+summaries of how far it moved from the zero-shot prompt's (D13). This adds no forward
+passes. It is supporting evidence about the representation, not a causal test, and it
+only means something next to its chance baseline and the irrelevant-example control.
+
 `03` and `04` read `data/prompts/main`, so build those prompts first (the second
 `01` command above; `reverse_check.yaml` points at the same directory). Building
 prompts needs only the tokenizer and MMLU, not the model weights.

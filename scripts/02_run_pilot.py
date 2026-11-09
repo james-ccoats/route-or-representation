@@ -7,7 +7,12 @@ Usage: uv run python scripts/02_run_pilot.py --config configs/experiments/pilot.
 """
 
 from rr.analysis import format_pilot_summary, load_results
-from rr.config import load_experiment_config, load_model_config, parse_config_arg
+from rr.config import (
+    load_experiment_config,
+    load_model_config,
+    parse_bool_option,
+    parse_config_arg,
+)
 from rr.models import inspect_moe_structure, load_model, model_provenance, verify_structure
 from rr.pilot import run_prompt_file
 
@@ -19,6 +24,7 @@ def main() -> None:
         raise FileNotFoundError(
             f"no prompt files in {cfg.prompts_dir}; run scripts/01_build_prompts.py first"
         )
+    record_hidden_states = parse_bool_option(cfg.options, "record_hidden_states", False)
     model_cfg = load_model_config(cfg.model_config)
     model, tokenizer = load_model(
         model_cfg.name, model_cfg.dtype, model_cfg.device, model_cfg.revision
@@ -34,6 +40,7 @@ def main() -> None:
             path,
             cfg.output_dir / path.name,
             model_provenance=model_provenance(model_cfg),
+            record_hidden_states=record_hidden_states,
             show_progress=True,
         )
         print(f"{path.stem}: evaluated {evaluated} questions")
