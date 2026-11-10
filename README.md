@@ -65,6 +65,10 @@ uv run python scripts/04_reverse_check.py  --config configs/experiments/reverse_
 uv run python scripts/05_make_figures.py   --config configs/experiments/force_routing.yaml
 ```
 
+To run these in order, use `scripts/run_all.py --stage {pilot,ladder,main,ladder-forcing,all}`
+(`--dry-run` prints the commands). `all` stops after the pilot and ladder stages so the
+Phase 2 criteria are checked before the main experiments; `--continue-past-gates` runs on.
+
 For the ladder, `ladder_force_routing.yaml` and `ladder_reverse_check.yaml` run `03` and
 `04` on the prompts that `ladder_pilot.yaml` built (no second `01` run needed).
 
@@ -122,6 +126,7 @@ Package modules (`src/rr/`):
 ```
 config, data, prompts       configs, MMLU loading/sampling, the four prompt conditions
 distance                    model-free lexical distance between MMLU subjects (labels check)
+stages                      ordered experiment stages behind scripts/run_all.py
 shots, prompt_build         run names for (direction, replicate, k); prompts for every replicate and k
 shot_curves                 gain / routing shift / gain fractions against k, spread across replicates
 models, scoring             MoE structure inspection, option log-prob scoring
