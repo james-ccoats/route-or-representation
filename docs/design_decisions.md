@@ -8,7 +8,7 @@ date it. Do not delete the options that were rejected.
 
 ## D1. Force only expert selection, or selection plus mixing weights?
 
-**Status:** open
+**Status:** default set to B, full routing replay (2026-11-10); A stays available as a check.
 
 **Options:**
 - A. Force only *which* experts are selected; mixing weights come from the
@@ -30,6 +30,14 @@ rather than assuming. Consequence for the random control: with A and no renormal
 forcing random experts also shrinks the MoE output (their router probabilities are
 small), so it is a harsher intervention than "random experts with typical weights".
 Decide which of A/B is the headline before the main run, and report the other as a check.
+
+**Decided (2026-11-10):** the headline is B. `force_mixing_weights` now defaults to `true`
+(in `ForcingOptions`, `parse_forcing_options` and all four forcing configs), so forcing
+replays the recorded experts and their mixing weights together. A remains available
+(`force_mixing_weights: false`) as a check run. The random control never forces weights
+(it always uses the router's own probabilities for the random experts), so under B it
+differs from the forced runs in that respect too. The setting is recorded in the run
+manifest, so a run started under one setting cannot be resumed under the other.
 
 ---
 

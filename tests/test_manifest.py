@@ -206,7 +206,7 @@ def test_resuming_with_unchanged_settings_is_fine(tmp_path, model, structure, to
 @pytest.mark.parametrize(
     ("overrides", "expected_key"),
     [
-        ({"options": ForcingOptions(force_weights=True)}, "force_weights"),
+        ({"options": ForcingOptions(force_weights=False)}, "force_weights"),
         ({"options": ForcingOptions(layers=(0,))}, "layers"),
         ({"options": ForcingOptions(random_seed=9)}, "random_seed"),
         ({"plans": (ForcingPlan(CROSS, ZERO),)}, "plans"),

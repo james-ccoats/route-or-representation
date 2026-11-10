@@ -14,7 +14,7 @@ prompts_dir: data/prompts/main
 output_dir: results/force_routing
 options:
   force_scope: target_question_tokens     # example tokens route naturally
-  force_mixing_weights: false             # false = selection only (open decision)
+  force_mixing_weights: true             # full routing replay: experts and mixing weights (D1)
   layers: null                            # null = all layers; Phase 4 sweeps subsets
   sanity_identity_check: true             # force zero-shot routing on zero-shot prompt
   sanity_random_check: true               # force random experts; accuracy should drop

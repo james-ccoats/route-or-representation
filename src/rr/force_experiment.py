@@ -17,9 +17,10 @@ Methodological notes:
 
 * Forcing applies only on the aligned target-question tokens (design decision D2,
   option A); example tokens route naturally.
-* ``force_weights`` selects between forcing only expert *selection* (weights are
-  the router's own probabilities over the forced experts) and a full routing
-  replay (decision D1).
+* ``force_weights`` selects between a full routing replay (the default: the recorded
+  mixing weights are forced along with the experts) and forcing only expert
+  *selection* (weights are the router's own probabilities over the forced experts);
+  decision D1. The random control never forces weights.
 * The random control seeds from ``random_seed + question_index``, so it is
   reproducible and resumable but differs between questions.
 """
@@ -76,12 +77,12 @@ class ForcingOptions:
     """How forcing is applied.
 
     Attributes:
-        force_weights: Also force the recorded mixing weights (full routing replay).
+        force_weights: Also force the recorded mixing weights (full routing replay; the default).
         layers: Layers to force; ``None`` forces all, ``()`` forces nothing.
         random_seed: Base seed of the random-expert control.
     """
 
-    force_weights: bool = False
+    force_weights: bool = True
     layers: tuple[int, ...] | None = None
     random_seed: int = 0
 
@@ -311,7 +312,7 @@ def parse_forcing_options(options: Mapping[str, Any], *, seed: int) -> ForcingOp
             raise ValueError(f"layers: must be null or a list of layer indices, got {layers!r}")
         layers = tuple(layers)
     return ForcingOptions(
-        force_weights=parse_bool_option(options, "force_mixing_weights", False),
+        force_weights=parse_bool_option(options, "force_mixing_weights", True),
         layers=layers,
         random_seed=seed,
     )

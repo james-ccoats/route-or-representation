@@ -318,7 +318,7 @@ def test_forcing_run_resumes_after_a_crash(tmp_path, model, structure, tokenizer
 
 def test_default_options() -> None:
     assert parse_forcing_options({}, seed=7) == ForcingOptions(
-        force_weights=False, layers=None, random_seed=7
+        force_weights=True, layers=None, random_seed=7
     )
 
 
@@ -348,3 +348,9 @@ def test_options_are_read_from_the_config_mapping() -> None:
 def test_invalid_options_are_rejected(options, match) -> None:
     with pytest.raises(ValueError, match=match):
         parse_forcing_options(options, seed=0)
+
+
+def test_selection_only_forcing_is_still_available() -> None:
+    options = parse_forcing_options({"force_mixing_weights": False}, seed=0)
+
+    assert options.force_weights is False

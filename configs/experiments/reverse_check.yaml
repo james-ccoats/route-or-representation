@@ -14,5 +14,5 @@ prompts_dir: data/prompts/main
 output_dir: results/reverse_check
 options:
   force_scope: target_question_tokens
-  force_mixing_weights: false
+  force_mixing_weights: true             # full routing replay: experts and mixing weights (D1)
   layers: null
