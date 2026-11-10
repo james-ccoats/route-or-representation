@@ -87,6 +87,7 @@ class PairsConfig:
     irrelevant_subjects: tuple[str, ...]
     irrelevant_split: str = DEFAULT_IRRELEVANT_SPLIT
     extra_shot_splits: tuple[str, ...] = ()
+    dataset_revision: str | None = None
 
     @property
     def shot_splits(self) -> tuple[str, ...]:
@@ -292,7 +293,17 @@ def load_pairs_config(path: str | Path) -> PairsConfig:
         irrelevant_subjects=tuple(irrelevant),
         irrelevant_split=irrelevant_split,
         extra_shot_splits=extra_shot_splits,
+        dataset_revision=_parse_dataset_revision(data, where),
     )
+
+
+def _parse_dataset_revision(data: Mapping[str, Any], where: str) -> str | None:
+    revision = data.get("dataset_revision")
+    if revision is None:
+        return None
+    if not isinstance(revision, str) or not revision.strip():
+        raise ConfigError(f"{where}: 'dataset_revision' must be a non-empty string or null")
+    return revision
 
 
 def _parse_extra_shot_splits(

@@ -32,7 +32,9 @@ def main() -> None:
     config_path = parse_config_arg(__doc__ or "")
     pairs = load_pairs_config(config_path)
     # IDF is computed over every MMLU subject, not just the ones in this config.
-    distances = subject_distances(load_mmlu_texts(pairs.eval_split, pairs.dataset))
+    distances = subject_distances(
+        load_mmlu_texts(pairs.eval_split, pairs.dataset, pairs.dataset_revision)
+    )
     rows = direction_distances(pairs, distances)
     print(format_direction_distances(rows))
 

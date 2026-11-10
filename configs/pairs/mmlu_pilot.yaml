@@ -1,6 +1,8 @@
 # Domain pairs for the pilot. Each pair is run in BOTH directions
 # (source -> target and target -> source) when run_both_directions is true.
 dataset: cais/mmlu
+# Commit of the dataset repo; sampling indexes into dataset order, so this pins the questions.
+dataset_revision: c30699e8356da336a370243923dbaf21066bb9fe
 # MMLU splits: "dev" has only 5 questions per subject, so shots beyond 5 must
 # come from another split. Eval questions must never overlap with shot questions.
 shot_split: dev

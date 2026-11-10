@@ -294,3 +294,25 @@ def test_shipped_pairs_pool_dev_and_validation_for_shots(name: str) -> None:
 
     assert cfg.shot_splits == ("dev", "validation")
     assert cfg.eval_split == "test"
+
+
+def test_dataset_revision_is_read_from_the_shipped_pairs_configs() -> None:
+    for name in ("mmlu_pilot.yaml", "mmlu_ladder.yaml"):
+        cfg = load_pairs_config(CONFIGS / "pairs" / name)
+        assert cfg.dataset_revision is not None and len(cfg.dataset_revision) == 40
+
+
+def test_dataset_revision_defaults_to_none(tmp_path: Path) -> None:
+    data = yaml.safe_load((CONFIGS / "pairs" / "mmlu_pilot.yaml").read_text())
+    del data["dataset_revision"]
+
+    assert load_pairs_config(_write(tmp_path, data)).dataset_revision is None
+
+
+@pytest.mark.parametrize("bad", [123, "", "  "])
+def test_bad_dataset_revision_raises_config_error(tmp_path: Path, bad) -> None:
+    data = yaml.safe_load((CONFIGS / "pairs" / "mmlu_pilot.yaml").read_text())
+    data["dataset_revision"] = bad
+
+    with pytest.raises(ConfigError, match="dataset_revision"):
+        load_pairs_config(_write(tmp_path, data))

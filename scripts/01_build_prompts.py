@@ -22,16 +22,24 @@ def main() -> None:
     cfg = load_experiment_config(parse_config_arg(__doc__ or ""))
     pairs = load_pairs_config(cfg.pairs_config)
     model_cfg = load_model_config(cfg.model_config)
+    if pairs.dataset_revision is None:
+        raise SystemExit(
+            f"{cfg.pairs_config}: set 'dataset_revision' to a commit hash of {pairs.dataset} "
+            "so the prompts can be rebuilt identically"
+        )
+    dataset_args = (pairs.dataset, pairs.dataset_revision)
     # Only the tokenizer is needed to build and length-match prompts, not the weights.
     tokenizer = AutoTokenizer.from_pretrained(model_cfg.name, revision=model_cfg.revision)
 
     irrelevant_pool = [
-        q for s in pairs.irrelevant_subjects for q in load_mmlu_subject(s, pairs.irrelevant_split)
+        q
+        for s in pairs.irrelevant_subjects
+        for q in load_mmlu_subject(s, pairs.irrelevant_split, *dataset_args)
     ]
     runs = {}
     for direction, source, target in pairs.directions():
-        eval_pool = load_mmlu_subject(target, pairs.eval_split)
-        full_target_pool = load_shot_pool(target, pairs.shot_splits)
+        eval_pool = load_mmlu_subject(target, pairs.eval_split, *dataset_args)
+        full_target_pool = load_shot_pool(target, pairs.shot_splits, *dataset_args)
         target_pool = without_overlap(full_target_pool, eval_pool)
         if len(target_pool) < len(full_target_pool):
             print(
@@ -41,7 +49,7 @@ def main() -> None:
             )
         built = build_direction_prompts(
             direction=direction,
-            source_pool=load_shot_pool(source, pairs.shot_splits),
+            source_pool=load_shot_pool(source, pairs.shot_splits, *dataset_args),
             target_pool=target_pool,
             eval_pool=eval_pool,
             irrelevant_pool=irrelevant_pool,

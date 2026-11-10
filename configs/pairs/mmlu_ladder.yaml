@@ -14,6 +14,8 @@
 # crude and compressed at the far end (chemistry 0.935 vs computer science 0.966), so
 # re-check it, and prefer a routing-based distance once the model has run.
 dataset: cais/mmlu
+# Commit of the dataset repo; sampling indexes into dataset order, so this pins the questions.
+dataset_revision: c30699e8356da336a370243923dbaf21066bb9fe
 shot_split: dev
 # Few-shot examples are drawn from dev + validation pooled (dev alone has 5 questions per
 # subject, so it could give only one example set). Test stays evaluation-only.
