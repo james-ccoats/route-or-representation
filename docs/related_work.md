@@ -37,8 +37,35 @@ question in a different setting. We should compare how they replay routing
 **Open questions:** what replay variant do they use, and how do they handle
 the out-of-distribution concern for replayed routing?
 
+## The Myth of Expert Specialization in MoEs
+
+**Link:** https://arxiv.org/abs/2604.09780
+
+**Idea (from the abstract only; full text not yet read):** MoE routers are linear
+maps, so hidden-state similarity is necessary and sufficient to explain
+expert-usage similarity. Specialization is argued to be an emergent property of
+the representation space, not of the routing architecture. Reported across five
+pre-trained models (not named in the abstract): expert overlap between models
+answering the same question is about 60%, no higher than between different
+questions; deeper layers show near-identical expert activation across unrelated
+inputs.
+
+**Relevance:** the strongest published support for the representational side.
+It motivates (does not establish) our expectation in H3 that hidden states carry
+much of the gain, and it is consistent with the interaction point that routing is
+itself computed from the shifted hidden states.
+
+**Limits:** the result is about similarity of expert usage, not output or
+accuracy, so it does not show routing is causally unimportant. As far as the
+abstract says it is observational, with no forcing or replay and no few-shot
+setting. It also strengthens the out-of-distribution concern for replay:
+routing and hidden state are normally consistent.
+
+**Open questions:** which five models, and are any intervention experiments in
+the full text?
+
 ## How this project differs
 
-Both papers intervene on routing or hidden states for a different purpose
+The first two papers intervene on routing or hidden states for a different purpose
 (steering; diagnosing merges). We apply a routing-replay intervention to
 decompose the effect of in-context examples on domain transfer.

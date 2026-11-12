@@ -33,11 +33,11 @@ examples improve accuracy on a target domain, how much of the gain comes from
   target-question tokens more than irrelevant ones (lower per-layer Jaccard of
   top-k expert sets vs. zero-shot).
 - **H3 (representation carries much of the gain):** Forcing zero-shot routing
-  on the target-question tokens of a few-shot prompt retains a large fraction
-  of the gain. Motivated by RARE, which shows that hidden-state changes with
+  on the target-question tokens of a few-shot prompt (routing-removed) keeps a
+  large fraction of the gain. Motivated by RARE, which shows that hidden-state changes with
   routing held fixed can steer behavior.
 - **H4 (routing alone is insufficient):** Forcing few-shot routing into a
-  zero-shot prompt recovers only a small fraction of the gain.
+  zero-shot prompt (routing-added) adds only a small fraction of the gain.
 - **H5 (distance and direction):** The routing share of the gain grows with
   domain distance and may differ by transfer direction.
 
@@ -55,9 +55,9 @@ H3 and H4 are the main claims; H1 and H2 are preconditions checked in the pilot.
   Descriptive only; the causal evidence is the forcing experiment.
 - **Gain against k:** the metrics above at each k, averaged over replicates, with the
   range across replicates shown separately from the question-level interval (D14).
-- **Fraction of gain retained** = (forced − zero_shot) / (few_shot − zero_shot),
+- **Gain kept** (routing-removed; `retained` in the code) = (forced − zero_shot) / (few_shot − zero_shot),
   where *forced* is the few-shot prompt with zero-shot routing forced.
-- **Fraction of gain recovered** = (forced − zero_shot) / (few_shot − zero_shot),
+- **Gain added** (routing-added; `recovered` in the code) = (forced − zero_shot) / (few_shot − zero_shot),
   where *forced* is the zero-shot prompt with few-shot routing forced in.
 
 ## Phases
@@ -105,8 +105,8 @@ and transfer direction.
   (the ratio is undefined otherwise). The analysis reports such fractions as
   "undefined" and shows the share of bootstrap resamples with no defined ratio.
 - **Not yet pre-registered:** what size of pilot effect counts as H1/H2 holding
-  (Phase 2 "done when"), and what counts as "a large fraction" retained or "only a
-  small fraction" recovered (H3/H4). Write numeric thresholds here before the main
+  (Phase 2 "done when"), and what counts as "a large fraction" kept or "only a
+  small fraction" added (H3/H4). Write numeric thresholds here before the main
   run, so the interpretation is not chosen after seeing the results.
 - The headline result is reported as gain fractions with uncertainty across
   pairs, whichever direction it points. A finding that routing carries most of

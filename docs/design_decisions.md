@@ -370,7 +370,7 @@ real model
 
 **Context:** the forcing experiment holds target-token *routing* fixed and asks how much
 of the few-shot gain survives. That infers a hidden-state ("representation") effect as
-the residual; nothing measured it. A high retained fraction means the gain does not need
+the residual; nothing measured it. A high gain-kept fraction means the gain does not need
 the routing change, which is weaker than "the hidden states carry it".
 
 **What is measured (`rr.hidden`):** at the aligned target-question tokens, the state each
