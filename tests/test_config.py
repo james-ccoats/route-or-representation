@@ -316,3 +316,21 @@ def test_bad_dataset_revision_raises_config_error(tmp_path: Path, bad) -> None:
 
     with pytest.raises(ConfigError, match="dataset_revision"):
         load_pairs_config(_write(tmp_path, data))
+
+
+def test_subjects_config_lists_same_subject_targets_and_no_pairs() -> None:
+    cfg = load_pairs_config("configs/pairs/mmlu_subjects.yaml")
+    assert cfg.pairs == () and cfg.directions() == ()
+    assert len(cfg.subjects) >= 2
+    assert not set(cfg.subjects) & set(cfg.irrelevant_subjects)
+
+
+def test_subjects_and_pairs_cannot_be_mixed(tmp_path: Path) -> None:
+    text = Path("configs/pairs/mmlu_subjects.yaml").read_text()
+    path = tmp_path / "mixed.yaml"
+    path.write_text(
+        text
+        + "pairs:\n  - {name: p, domain_a: a, domain_b: b, expected_distance: near}\n"
+    )
+    with pytest.raises(ConfigError, match="not both"):
+        load_pairs_config(path)

@@ -6,62 +6,89 @@
 <title>Route or Representation? Project proposal</title>
 <style>
   :root {
-    --bg: #ffffff; --fg: #0f1f3d; --muted: #5a6882; --accent: #1d4ed8;
-    --accent2: #0b2a6f; --tint: #eff4ff; --card: #ffffff; --line: #d6deeb;
+    /* Design tokens */
+    --bg: #fbfaf7; --fg: #1b1f27; --muted: #5d6370; --accent: #2c4f85;
+    --accent2: #14284b; --tint: #f0ede6; --card: #fbfaf7; --line: #d8d5cd;
+    --serif: "Charter", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: "Helvetica Neue", "Segoe UI", Helvetica, Arial, sans-serif;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
-    font-family: "Inter", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    font-family: var(--sans); -webkit-font-smoothing: antialiased; }
   .deck { height: 100vh; position: relative; overflow: hidden; }
-  section { position: absolute; inset: 0; padding: 7vh 8vw 10vh; display: none;
-    flex-direction: column; justify-content: center; gap: 1.2rem; overflow-y: auto;
-    border-top: 6px solid var(--accent); }
+  section { position: absolute; inset: 0; padding: 6vh 9vw 10vh; display: none;
+    flex-direction: column; justify-content: flex-start; gap: .9rem; overflow-y: auto; }
   section.active { display: flex; }
-  h1 { font-family: Georgia, "Times New Roman", serif; font-weight: 700; color: var(--accent2);
-    font-size: clamp(2rem, 5vw, 3.6rem); margin: 0; line-height: 1.1; }
-  h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 700; color: var(--accent2);
-    font-size: clamp(1.5rem, 3.2vw, 2.4rem); margin: 0 0 .4rem; line-height: 1.2;
-    padding-bottom: .5rem; border-bottom: 1px solid var(--line); }
-  h3 { font-size: 1.05rem; margin: 0 0 .3rem; color: var(--accent); }
-  p, li { font-size: clamp(1rem, 1.7vw, 1.3rem); line-height: 1.5; }
-  ul { margin: .3rem 0; padding-left: 1.3rem; } li { margin: .35rem 0; }
-  li::marker { color: var(--accent); }
-  b { color: var(--accent2); }
-  a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+  section:first-child { justify-content: center; text-align: center; }
+  /* Centre the content block on the slide; auto margins keep tall slides scrollable */
+  .deck section > * { width: 100%; max-width: 1100px; margin-left: auto; margin-right: auto; }
+  .deck section > :first-child { margin-top: auto; }
+  .deck section > :last-child { margin-bottom: auto; }
+  .deck section > h2 { text-align: center; }
+  .deck section:first-child > * { text-align: center; }
+
+  /* Type scale: kicker / title / body / caption */
+  h1 { font-family: var(--serif); font-weight: 400; color: var(--accent2);
+    font-size: clamp(2.2rem, 5vw, 3.8rem); margin: 0; line-height: 1.1; letter-spacing: -.01em; }
+  h2 { font-family: var(--serif); font-weight: 400; color: var(--accent2);
+    font-size: clamp(1.6rem, 3vw, 2.3rem); margin: 0 0 .3rem; line-height: 1.2; letter-spacing: -.005em;
+    padding-bottom: .5rem; border-bottom: 1px solid var(--fg); }
+  h3 { font-family: var(--sans); font-size: .82rem; font-weight: 600; margin: 0 0 .4rem; color: var(--accent);
+    text-transform: uppercase; letter-spacing: .09em; line-height: 1.35; }
+  p, li { font-size: clamp(.95rem, 1.5vw, 1.2rem); line-height: 1.5; max-width: 62em; }
+  p { margin: .3rem 0; }
+  ul { margin: .3rem 0; padding-left: 1.2rem; } li { margin: .4rem 0; }
+  li::marker { color: var(--muted); }
+  b { font-weight: 650; color: inherit; }
+  a { color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
   a:hover { color: var(--accent2); }
-  .sub { color: var(--muted); font-size: clamp(1.05rem, 2vw, 1.4rem); margin: 0; }
-  .kicker { text-transform: uppercase; letter-spacing: .14em; font-size: .78rem; color: var(--accent); font-weight: 700; }
-  .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .sub { color: var(--muted); font-family: var(--serif); font-size: clamp(1.1rem, 2vw, 1.45rem); line-height: 1.5;
+    margin: .4rem 0; max-width: 40em; }
+  .kicker { text-transform: uppercase; letter-spacing: .16em; font-size: .72rem; color: var(--muted); font-weight: 600; }
+
+  /* Layout grid */
+  .grid { display: grid; gap: 1.6rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
   .grid.three { grid-template-columns: repeat(3, 1fr); }
-  .card { background: var(--tint); border: 1px solid var(--line); border-left: 4px solid var(--accent);
-    border-radius: 4px; padding: 1rem 1.2rem; }
-  .card p, .card li { font-size: clamp(.95rem, 1.4vw, 1.1rem); margin: .25rem 0; }
-  table { border-collapse: collapse; width: 100%; background: var(--card); }
-  th, td { border: 0; border-bottom: 1px solid var(--line); padding: .55rem .7rem; text-align: left;
-    font-size: clamp(.9rem, 1.35vw, 1.08rem); vertical-align: top; }
-  th { background: var(--tint); color: var(--accent2); font-weight: 700; border-bottom: 2px solid var(--accent); }
-  code { background: var(--tint); border: 1px solid var(--line); border-radius: 3px; padding: 0 .3em;
-    font-size: .9em; color: var(--accent2); }
-  .tag { display: inline-block; border-radius: 3px; padding: .05rem .6rem; font-size: .78rem; font-weight: 700;
-    border: 1px solid currentColor; text-transform: uppercase; letter-spacing: .05em; }
+  .runs td:first-child { white-space: nowrap; }
+  .ex th, .ex td { font-size: clamp(.8rem, 1.1vw, .94rem); padding-top: .3rem; padding-bottom: .3rem; }
+  .ex td:first-child { width: 15%; }
+  .runs th, .runs td { font-size: clamp(.8rem, 1.12vw, .95rem); padding-top: .32rem; padding-bottom: .32rem; }
+  .card { background: transparent; border: 0; border-top: 1.5px solid var(--accent2); border-radius: 0; padding: .7rem 0 0; }
+  .card p, .card li { font-size: clamp(.95rem, 1.35vw, 1.08rem); margin: .25rem 0; line-height: 1.5; }
+
+  /* Tables: rules only */
+  table { border-collapse: collapse; width: 100%; background: transparent;
+    border-top: 1.5px solid var(--fg); border-bottom: 1.5px solid var(--fg); }
+  th, td { border: 0; border-bottom: 1px solid var(--line); padding: .42rem .8rem .42rem 0; text-align: left;
+    font-size: clamp(.9rem, 1.3vw, 1.05rem); vertical-align: top; line-height: 1.45; }
+  tr:last-child td { border-bottom: 0; }
+  th { background: transparent; color: var(--fg); font-weight: 600; border-bottom: 1px solid var(--fg);
+    font-size: clamp(.8rem, 1.1vw, .92rem); letter-spacing: .04em; text-transform: uppercase; }
+  code { background: var(--tint); border: 0; border-radius: 2px; padding: .05em .35em;
+    font-size: .88em; color: var(--accent2); }
+  .tag { display: inline-block; border-radius: 2px; padding: .05rem .5rem; font-size: .7rem; font-weight: 600;
+    border: 1px solid currentColor; text-transform: uppercase; letter-spacing: .08em; }
   .done { color: #fff; background: var(--accent); border-color: var(--accent); }
-  .todo { color: var(--accent); background: var(--card); }
-  .note { color: var(--muted); font-size: .95rem; }
-  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: .6rem; }
-  .fig svg { display: block; max-height: 40vh; }
+  .todo { color: var(--accent); background: transparent; }
+  .note { color: var(--muted); font-size: .88rem; line-height: 1.45; }
+  .fig { background: transparent; border: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    border-radius: 0; padding: .6rem 0; }
+  .fig svg { display: block; max-height: 30vh; }
   svg text { fill: var(--fg); font-family: inherit; }
-  svg .box { fill: var(--card); stroke: var(--line); stroke-width: 1.5; }
-  svg .hl { fill: var(--tint); stroke: var(--accent); stroke-width: 2.5; }
-  svg .hl2 { fill: var(--tint); stroke: var(--accent2); stroke-width: 2.5; stroke-dasharray: 7 4; }
+  svg .box { fill: var(--card); stroke: #9a978f; stroke-width: 1.2; }
+  svg .hl { fill: #e6ecf5; stroke: var(--accent); stroke-width: 2; }
+  svg .hl2 { fill: #e6ecf5; stroke: var(--accent2); stroke-width: 2; stroke-dasharray: 6 4; }
   svg .mut { fill: var(--muted); }
+
+  /* Navigation footer */
   nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; align-items: center; gap: .8rem;
-    padding: .5rem 1rem; background: var(--bg); border-top: 1px solid var(--line); font-size: .85rem; color: var(--muted); }
-  nav button { background: var(--card); color: var(--accent); border: 1px solid var(--accent); border-radius: 4px;
-    padding: .25rem .8rem; cursor: pointer; font-size: .9rem; }
-  nav button:hover { background: var(--accent); color: #fff; }
-  nav .bar { flex: 1; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
-  nav .bar i { display: block; height: 100%; background: var(--accent); width: 0; }
-  section:first-child h1 { border: 0; font-size: clamp(2.2rem, 5.5vw, 4rem); }
+    padding: .5rem 9vw; background: var(--bg); border-top: 1px solid var(--line); font-size: .8rem; color: var(--muted); }
+  nav button { background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 2px;
+    padding: .2rem .7rem; cursor: pointer; font-size: .85rem; }
+  nav button:hover { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+  nav .bar { flex: 1; height: 2px; background: var(--line); overflow: hidden; }
+  nav .bar i { display: block; height: 100%; background: var(--accent2); width: 0; }
+  section:first-child h1 { border: 0; font-size: clamp(2.4rem, 5.5vw, 4.2rem); }
   @media print {
     .deck { height: auto; overflow: visible; } nav { display: none; }
     section { position: static; display: flex !important; min-height: 100vh; page-break-after: always; }
@@ -76,8 +103,6 @@
   <span class="kicker">Project proposal</span>
   <h1>Route or representation?</h1>
   <p class="sub">How much of the few-shot benefit in a mixture-of-experts model comes from the context redirecting tokens to different experts, and how much from the context reshaping what those experts see?</p>
-  <p class="note">Model: OLMoE-1B-7B &middot; Task: MMLU science subjects &middot; Method: routing replay<br>
-  Status: pipeline built and tested on a tiny random-weight MoE; no results from the real model yet.</p>
 </section>
 
 <!-- 2 Question -->
@@ -91,7 +116,7 @@
     <div class="card"><h3>Shifted hidden states</h3>
       <p>The same experts can still do better work: a hidden state enriched by the examples (task format, domain cues) gives each expert a more informative input, so its output moves toward the correct answer.</p></div>
   </div>
-  <p>Both channels start from the the context's effect on hidden states, and can act together. We expect the gain to come from <b>a combination</b>, and want to <b>isolate each factor and estimate its share</b>.</p>
+  <p>Both channels start from the same cause, the context's effect on hidden states, and can act together. We expect the gain to come from <b>a combination</b>, and want to <b>isolate each factor and estimate its share</b>.</p>
 </section>
 
 <!-- 3 Motivation -->
@@ -100,21 +125,21 @@
   <h2>Motivation</h2>
   <ul>
     <li><b><a href="https://arxiv.org/abs/2608.21236" target="_blank" rel="noopener">RARE</a></b> steers MoE behavior by editing hidden states in the router's null space, so routing is unchanged while behavior moves. Demonstrates hidden-state shifts alone can carry behavioral change.</li>
-    <li><b><a href="https://arxiv.org/abs/2609.32821" target="_blank" rel="noopener">Routing Drift Alone Does Not Diagnose Failure In Merged MoE LLMs</a></b>: closest methodological precedent. Demonstrates that shifted routing on merged specialized LLMs does not necessarily mean task performance loss. Establishes an analysis toolkit for routing tests.</li>
-    <li><b><a href="https://arxiv.org/abs/2604.09780" target="_blank" rel="noopener">The Myth of Expert Specialization in MoEs</a></b>: argues that routing reflects hidden-state geometry, since router decisions are a linear function of the hidden state. Motivates our expectation that the representation carries much of the gain. It is observational, so whether routing matters causally for accuracy is untested.</li>
-    <li><b>Research gap:</b> none of these applies a routing-replay intervention to ordinary in-context learning, nor asks how the split depends on domain distance or transfer direction.</li>
+    <li><b><a href="https://arxiv.org/abs/2609.32821" target="_blank" rel="noopener">Routing Drift Alone Does Not Diagnose Failure In Merged MoE LLMs</a></b>: closest methodological precedent, and it includes OLMoE. Shows that shifted routing in merged LLMs does not necessarily mean task loss, and that replaying source routing onto merged hidden states changed OLMoE accuracy by no significant amount. The authors do not read this as harmlessness. Releases a routing-analysis toolkit.</li>
+    <li><b><a href="https://arxiv.org/abs/2604.09780" target="_blank" rel="noopener">The Myth of Expert Specialization in MoEs</a></b>: argues that routing reflects hidden-state geometry, since router logits are a linear function of the hidden state. Motivates our expectation that the representation carries much of the gain. It is observational, so whether routing matters causally for accuracy is untested.</li>
+    <li><b>Research gap:</b> to our knowledge, none of these applies a routing-replay intervention to ordinary in-context learning. A literature search is still in progress.</li>
   </ul>
 </section>
 
 <!-- 4 Hypotheses -->
 <section>
-  <span class="kicker">Hypotheses</span>
+  <span class="kicker">Predictions</span>
   <h2>Hypotheses</h2>
   <table>
     <tr><th></th><th>Claim</th><th>Role</th></tr>
-    <tr><td>H1</td><td>Cross-domain few-shot beats zero-shot for at least some pairs.</td><td>Pilot gate</td></tr>
-    <tr><td>H2a</td><td>Few-shot context shifts routing on target tokens beyond noise and beyond a length-matched irrelevant prompt.</td><td>Pilot gate</td></tr>
-    <tr><td>H2b</td><td>That shift moves toward same-domain few-shot routing: cross-domain routing is closer to it than zero-shot and irrelevant-example routing are.</td><td>Pilot gate</td></tr>
+    <tr><td>H1</td><td>Few-shot examples from the question's own subject beat zero-shot for at least some subjects.</td><td>Pilot gate</td></tr>
+    <tr><td>H2a</td><td>Few-shot examples shift routing on target tokens beyond noise and beyond a length-matched irrelevant prompt (size of shift only, not direction).</td><td>Pilot gate</td></tr>
+    <tr><td>H2b</td><td>That shift is driven by the examples' content: routing under one example set of a subject is closer to routing under another set of the same subject than zero-shot and irrelevant-example routing are.</td><td>Pilot gate</td></tr>
     <tr><td><b>H3</b></td><td>Forcing zero-shot routing onto the few-shot prompt (<b>routing-removed</b>) keeps a large fraction of the gain.</td><td>Main claim</td></tr>
     <tr><td><b>H4</b></td><td>Forcing few-shot routing into the zero-shot prompt (<b>routing-added</b>) adds only a small fraction of the gain.</td><td>Main claim</td></tr>
   </table>
@@ -142,9 +167,11 @@
     </svg>
   </div>
   <ul>
-    <li><b>Gain kept</b> (routing-removed) = (forced &minus; zero-shot) / (few-shot &minus; zero-shot), where forced is the few-shot prompt run with zero-shot routing. High means representation carries the gain.</li>
-    <li><b>Gain added</b> (routing-added) = (forced &minus; zero-shot) / (few-shot &minus; zero-shot), where forced is now the zero-shot prompt run with few-shot routing. Low means routing alone is not enough.</li>
+    <li><b>Gain kept</b> (routing-removed) = (forced &minus; zero-shot) / (few-shot &minus; zero-shot), where forced is the few-shot prompt run with zero-shot routing. High means the gain mostly survives without the target tokens' routing change.</li>
+    <li><b>Gain added</b> (routing-added) = (forced &minus; zero-shot) / (few-shot &minus; zero-shot), where forced is now the zero-shot prompt run with few-shot routing. Low means the target tokens' routing alone does not reproduce the gain.</li>
+    <li><b>Full replay</b> forces both the experts and their mixing weights (headline setting). <b>Selection-only</b> forces just which experts are chosen (robustness check).</li>
   </ul>
+  <p class="note">Routing is replayed one-to-one onto the identical question tokens, matched by character offsets with token ids validated. In these two runs the example tokens keep their own routing, so on their own they do not show that hidden states carry the gain. Slide 9 adds that test.</p>
 </section>
 
 <!-- 5b Caveat: replay mixes two effects -->
@@ -153,13 +180,13 @@
   <h2>Replay mixes two effects</h2>
   <p>Replay presents the model with a hidden state and a routing decision that were not computed together. Any change in accuracy therefore mixes two effects: the effect of the routing itself, and the effect of this mismatch.</p>
   <div class="grid">
-    <div class="card"><h3>1. Measure the state shift</h3>
-      <p>Per layer, how much the examples change the router-visible hidden state on the target tokens, and how much of that change lies in directions the router can use. We expect it to be nonzero. This sizes the mismatch that replay creates, and we read the results against it.</p></div>
+    <div class="card"><h3>1. Measure the mismatch size</h3>
+      <p>Per layer, how different the routing is between the two prompts on the target tokens (expert-set overlap), and how much of the hidden-state shift lies in directions the router can use. This is the size of the mismatch that replay creates. It does not separate the two effects by itself: the controls do.</p></div>
     <div class="card"><h3>2. Matched replay</h3>
-      <p>Overwrite a few-shot prompt's routing on the question tokens with routing from a sibling prompt: same source domain, same question, different examples. The context is nearly identical, so accuracy should stay near few-shot. A drop means replay itself is harmful.</p>
+      <p>Overwrite a few-shot prompt's routing on the question tokens with routing from a sibling prompt: same subject as the question, same question, different examples. The context is nearly identical, so accuracy should stay near few-shot. A drop means replay itself is harmful.</p>
       <ul><li>Prompt A: physics examples (set 1) + question Q</li>
       <li>Prompt B: physics examples (set 2) + the same Q</li>
-      <li>Run A with B's routing forced on Q's tokens</li></ul>
+      <li>Run A with B's routing forced on Q's tokens</li></ul></div>
   </div>
 </section>
 
@@ -167,31 +194,39 @@
 <section>
   <span class="kicker">Method: caveat</span>
   <h2>Calibrating the damage from replay</h2>
-  <p>Replay is a perturbation with a size. We place our result on a scale between a mild replay and the worst plausible one.</p>
+  <p>Replay is a perturbation with a size. We trace the damage that graded perturbations cause and read our result against it. Positions are illustrative.</p>
   <div class="fig">
-    <svg viewBox="0 0 900 190" width="100%" role="img" aria-label="Scale of replay damage: matched replay at the mild end, random experts at the severe end, cross-domain replay somewhere between.">
-      <line x1="60" y1="100" x2="840" y2="100" stroke="currentColor" stroke-width="2" class="mut"/>
-      <text x="60" y="140" font-size="14" class="mut">mild</text>
-      <text x="840" y="140" font-size="14" class="mut" text-anchor="end">severe</text>
-      <text x="450" y="176" font-size="14" class="mut" text-anchor="middle">size of the perturbation (damage to accuracy)</text>
+    <svg viewBox="0 0 900 210" width="100%" style="max-height:24vh" role="img" aria-label="Scale of replay damage: matched replay, next-best swap, random experts in some layers and random experts in all layers as anchors from mild to severe, with our replay somewhere between.">
+      <line x1="60" y1="110" x2="840" y2="110" stroke="currentColor" stroke-width="2" class="mut"/>
+      <text x="60" y="150" font-size="14" class="mut">mild</text>
+      <text x="840" y="150" font-size="14" class="mut" text-anchor="end">severe</text>
+      <text x="450" y="200" font-size="14" class="mut" text-anchor="middle">size of the perturbation (damage to accuracy)</text>
 
-      <circle cx="120" cy="100" r="11" style="fill:var(--accent)"/>
-      <text x="120" y="58" font-size="15" font-weight="700" text-anchor="middle">Matched replay</text>
-      <text x="120" y="78" font-size="13" class="mut" text-anchor="middle">least damage (planned control)</text>
+      <circle cx="110" cy="110" r="10" style="fill:var(--accent)"/>
+      <text x="110" y="62" font-size="14" font-weight="700" text-anchor="middle">Matched replay</text>
+      <text x="110" y="82" font-size="12" class="mut" text-anchor="middle">planned</text>
 
-      <circle cx="450" cy="100" r="11" class="hl2"/>
-      <text x="450" y="58" font-size="15" font-weight="700" text-anchor="middle">Cross-domain replay</text>
-      <text x="450" y="78" font-size="13" class="mut" text-anchor="middle">ours: where does it fall?</text>
+      <circle cx="300" cy="110" r="10" style="fill:var(--accent)"/>
+      <text x="300" y="62" font-size="14" font-weight="700" text-anchor="middle">Next-best swap</text>
+      <text x="300" y="82" font-size="12" class="mut" text-anchor="middle">planned</text>
 
-      <circle cx="780" cy="100" r="11" style="fill:var(--accent2)"/>
-      <text x="780" y="58" font-size="15" font-weight="700" text-anchor="middle">Random experts</text>
-      <text x="780" y="78" font-size="13" class="mut" text-anchor="middle">most damage (existing control)</text>
+      <circle cx="580" cy="110" r="10" style="fill:var(--accent)"/>
+      <text x="580" y="62" font-size="14" font-weight="700" text-anchor="middle">Random in some layers</text>
+      <text x="580" y="82" font-size="12" class="mut" text-anchor="middle">planned</text>
+
+      <circle cx="790" cy="110" r="10" style="fill:var(--accent2)"/>
+      <text x="790" y="62" font-size="14" font-weight="700" text-anchor="middle">Random experts (all layers)</text>
+      <text x="790" y="82" font-size="12" class="mut" text-anchor="middle">existing control</text>
+
+      <circle cx="450" cy="110" r="11" class="hl2"/>
+      <text x="450" y="146" font-size="14" font-weight="700" text-anchor="middle">Question-token replay (ours)</text>
+      <text x="450" y="166" font-size="12" class="mut" text-anchor="middle">where does it fall?</text>
     </svg>
   </div>
   <ul>
-    <li><b>Least damage:</b> matched replay, different examples from the same setup. <b>Most damage:</b> random experts.</li>
-    <li><b>Below-baseline rule:</b> if routing alone carried the gain, removing it should drop accuracy back to zero-shot at worst. Landing clearly below zero-shot (a negative gain kept) signals replay damage.</li>
-    <li><b>Identity check first:</b> forcing a prompt's own routing back onto itself must change nothing.</li>
+    <li><b>Graded anchors:</b> matched replay keeps the context benefit, so its loss is mostly damage. Next-best swap and random experts in some layers perturb a prompt's own routing on the question tokens, the same positions replay overwrites, at graded sizes. Random experts in all layers is the extreme. Expert-set overlap with the original routing places each on the axis. Slide 9 applies the same anchors to the example tokens.</li>
+    <li><b>Below-baseline rule:</b> removing routing should drop accuracy to zero-shot at worst. Clearly below it (a negative gain kept) signals replay damage.</li>
+    <li><b>Identity check first:</b> forcing a prompt's own routing back onto itself changes nothing.</li>
   </ul>
 </section>
 
@@ -200,17 +235,37 @@
   <span class="kicker">Method: caveat</span>
   <h2>Reading a low gain kept</h2>
   <table>
-    <tr><th>Matched replay</th><th>Routing-removed</th><th>Reading</th></tr>
-    <tr><td>stays near few-shot</td><td>near zero-shot, well above the random-expert floor</td><td>routing carried much of the gain</td></tr>
-    <tr><td>drops toward zero-shot</td><td>near zero-shot</td><td>cannot tell: replay damage</td></tr>
+    <tr><th>Graded anchors, at the same routing difference</th><th>Routing-removed</th><th>Reading</th></tr>
+    <tr><td>lose much less than routing-removed does</td><td>loses most of the gain</td><td>routing carried much of the gain</td></tr>
+    <tr><td>lose about as much as routing-removed does</td><td>loses most of the gain</td><td>cannot tell: damage alone could explain it</td></tr>
     <tr><td>any</td><td>below zero-shot</td><td>replay damage</td></tr>
   </table>
   <ul>
-    <li>Replay damage can only lower gain kept, so a <b>high</b> gain kept is robust. A <b>low</b> one needs these checks.</li>
+    <li>Assuming damage never helps, replay damage only lowers gain kept, so a <b>high</b> gain kept is robust. A <b>low</b> one needs these checks.</li>
     <li>Results should agree under selection-only and full replay.</li>
-    <li>Routing-added has no matched control, since the zero-shot prompt has no example set to swap. Damage also produces a low gain added, so a low value is weak evidence for H4.</li>
+    <li>Matched replay applies to the few-shot prompt only. The self-perturbation anchors apply to either prompt, so routing-added has damage anchors too. Damage also produces a low gain added, so a low value is weak evidence for H4.</li>
   </ul>
-  <p class="note">Matched replay bounds damage at a smaller mismatch than our real one, and damage may grow with mismatch size. The state-shift measurement shows how much larger the real mismatch is. This is evidence, not proof.</p>
+  <p class="note">The anchors estimate damage at our dose by interpolation. Self-perturbations are incoherent changes, while replay swaps in a coherent alternative, so damage may differ at the same overlap, and may not depend on dose alone.</p>
+</section>
+
+<!-- 5e Method: example tokens -->
+<section>
+  <span class="kicker">Method</span>
+  <h2>Replaying the example tokens too</h2>
+  <p>Routing is decided per token, so one forward pass can replay the question tokens and the example tokens separately. The zero-shot prompt has no example tokens, so there is no zero-shot routing to copy onto them. We perturb their routing instead, using the same anchors as before.</p>
+  <div class="grid three">
+    <div class="card"><h3>Positions</h3>
+      <ul><li><b>Question tokens:</b> routing-removed and routing-added (headline).</li>
+      <li><b>Example tokens:</b> few-shot prompt only, routing perturbed.</li>
+      <li><b>Both</b> in one pass.</li></ul></div>
+    <div class="card"><h3>Perturbations on the examples</h3>
+      <ul><li>Next-best swap, or random experts in k of 16 layers (graded).</li>
+      <li>Matched replay: routing from a different example set of equal token length (planned; needs equal-length sets).</li>
+      <li>Random experts in all layers (floor).</li></ul></div>
+    <div class="card"><h3>What it adds</h3>
+      <p>Gain that survives example-token perturbation, at doses the damage curve says are tolerable, shows routing at the examples is not needed either. With a high gain kept, routing at neither position set carries the gain. It would not identify which non-routing path does.</p></div>
+  </div>
+  <p class="note">A drop in gain is read against the damage anchors, as for the question tokens. Perturbing the examples changes the keys and values the question tokens attend to, which is part of the effect and also a source of damage.</p>
 </section>
 
 <!-- 6 Design -->
@@ -221,14 +276,15 @@
     <div class="card"><h3>Task and scoring</h3>
       <ul><li>MMLU multiple choice, scored by option log-probs; no generation.</li>
       <li>Accuracy plus correct-option log-prob (smoother).</li></ul></div>
-    <div class="card"><h3>Four conditions</h3>
-      <ul><li>zero-shot</li><li>cross-domain few-shot</li><li>same-domain few-shot (upper reference)</li><li>irrelevant, token-length-matched (control)</li></ul></div>
+    <div class="card"><h3>Three conditions</h3>
+      <ul><li>zero-shot</li><li>few-shot with examples from the question's own subject (primary)</li><li>irrelevant examples from another subject, matched on k and token length (control)</li></ul></div>
     <div class="card"><h3>Shots and replicates</h3>
       <ul><li>k = 1 to 5, nested.</li><li>3 independent example sets, pooled dev + validation.</li>
       <li>Identical target-question block in every condition.</li></ul></div>
-    <div class="card"><h3>Domains</h3>
-      <ul><li>bio &harr; medicine (near)</li><li>chemistry &harr; physics (medium)</li><li>CS &harr; biology (far)</li>
-      <li>Both directions, plus a fixed-target distance ladder.</li></ul></div>
+    <div class="card"><h3>Subjects</h3>
+      <ul><li>Several MMLU science subjects (for example biology, chemistry, physics, computer science), each its own example source and target.</li>
+      <li>Examples never include the question being scored.</li>
+      <li>Cross-domain examples are an extension.</li></ul></div>
   </div>
 </section>
 
@@ -236,34 +292,37 @@
 <section>
   <span class="kicker">Experimental design</span>
   <h2>Runs</h2>
-  <table>
-    <tr><th>Prompt</th><th>Intervention</th><th>Role</th></tr>
-    <tr><td>zero-shot</td><td>none</td><td>baseline accuracy</td></tr>
-    <tr><td>few-shot</td><td>none</td><td>the gain to be explained</td></tr>
-    <tr><td>few-shot</td><td>force the <b>zero-shot</b> routing onto the target tokens</td><td><b>Main test, routing-removed (H3)</b></td></tr>
-    <tr><td>zero-shot</td><td>force the <b>few-shot</b> routing onto the target tokens</td><td><b>Main test, routing-added (H4)</b></td></tr>
-    <tr><td>zero-shot</td><td>force its own routing back onto itself</td><td>Control: identity check</td></tr>
-    <tr><td>few-shot</td><td>force routing from a different example set of the same setup</td><td>Control: matched replay (planned)</td></tr>
-    <tr><td>few-shot</td><td>force random experts</td><td>Control: random-expert floor</td></tr>
+  <table class="runs">
+    <tr><th>Prompt</th><th>Tokens whose routing changes</th><th>What replaces their routing</th><th>Role</th></tr>
+    <tr><td>zero-shot</td><td>none</td><td>none</td><td>baseline accuracy</td></tr>
+    <tr><td>few-shot</td><td>none</td><td>none</td><td>the gain to be explained</td></tr>
+    <tr><td>few-shot</td><td>question</td><td>the <b>zero-shot</b> run's recorded routing</td><td><b>Main test, routing-removed (H3)</b></td></tr>
+    <tr><td>zero-shot</td><td>question</td><td>the <b>few-shot</b> run's recorded routing</td><td><b>Main test, routing-added (H4)</b></td></tr>
+    <tr><td>zero-shot</td><td>question</td><td>its own recorded routing (nothing should change)</td><td>Control: identity check</td></tr>
+    <tr><td>few-shot</td><td>question</td><td>routing from another example set, same subject, same question</td><td>Control: matched replay (planned)</td></tr>
+    <tr><td>both</td><td>question</td><td>its own routing, perturbed: next-best swap, or random experts in k of 16 layers</td><td>Controls: graded anchors (planned)</td></tr>
+    <tr><td>few-shot</td><td><b>example</b></td><td>perturbed as above, or routing from an equal-length example set</td><td><b>Test: is example-token routing needed? (planned)</b></td></tr>
+    <tr><td>irrelevant</td><td>question</td><td>the zero-shot run's recorded routing, and the reverse</td><td>Control: how much of the split is generic context? (planned)</td></tr>
+    <tr><td>few-shot</td><td>question</td><td>random experts in all layers</td><td>Control: random-expert floor</td></tr>
   </table>
-  <p>The comparison of interest is zero-shot routing against few-shot routing, each forced into the other prompt. Each main test is read against the identity check, matched replay and the random-expert floor, and any result below zero-shot is flagged as replay damage.</p>
+  <p class="note">Question tokens are the target question; example tokens are the few-shot examples before it. Only the router's choice at those positions is overwritten, in all 16 layers (experts and mixing weights for the forced rows); everything else runs normally. Each main test is read against the identity check, the graded anchors and the random-expert floor, and any result below zero-shot is flagged as replay damage.</p>
 </section>
 
 <!-- 7b Controls -->
 <section>
-  <span class="kicker">Controls</span>
+  <span class="kicker">Experimental design</span>
   <h2>Controls</h2>
   <div class="grid three">
     <div class="card"><h3>Identity check: is the machinery sound?</h3>
-      <p>Forcing a prompt's own routing back onto itself must change nothing. If any option log-prob moves by more than 1e-3, the record-and-force pipeline is broken or numerically unstable. Tolerance to be tightened once real bf16 numerics are known.</p></div>
-    <div class="card"><h3>Matched replay: is replay itself harmful?</h3>
-      <p>Replay routing from a different example set of the same setup onto the few-shot prompt. Accuracy should stay near few-shot. A drop means replay damages the model even at a small mismatch. Planned; few-shot prompt only.</p></div>
+      <p>Forcing a prompt's own routing back onto itself must change nothing. Log probs should remain the same within small numerical bounds.</p></div>
+    <div class="card"><h3>Graded anchors: how much damage does replay do?</h3>
+      <p>Matched replay (routing from a different example set of the same setup) keeps the context benefit, so its loss is mostly damage. Next-best swap and random experts in some layers perturb a prompt's own routing at graded sizes. Their accuracy loss against expert-set overlap traces a damage curve to read replay against.</p></div>
     <div class="card"><h3>Random-expert floor: does forcing bite, and how bad can it get?</h3>
       <p>Random experts are about the worst plausible replacement, so accuracy must drop. That shows the hook changes behavior, and gives a floor for the damage forcing can do.</p></div>
-    <div class="card"><h3>Irrelevant examples (pilot)</h3>
-      <p>Separates "any context shifts routing" from "relevant context shifts routing".</p></div>
+    <div class="card"><h3>Irrelevant examples</h3>
+      <p>Separates "any context shifts routing" from "relevant context shifts routing". Also forced like the few-shot prompt (planned), so gain kept and gain added show how much of the split is generic context and length.</p></div>
     <div class="card"><h3>Reading order</h3>
-      <p>1. Sanity checks pass. 2. The few-shot gain is clearly nonzero, else the fraction is reported as undefined. 3. Only then read gain kept and gain added, with bootstrap intervals, against matched replay and the random floor, flagging any result below zero-shot.</p></div>
+      <p>1. Sanity checks pass. 2. The few-shot gain is clearly nonzero. 3. Only then read gain kept and gain added, with bootstrap intervals, against the damage anchors and the random floor, flagging any result below zero-shot.</p></div>
   </div>
 </section>
 
@@ -271,20 +330,19 @@
 <section>
   <span class="kicker">Controls</span>
   <h2>Example (made-up numbers)</h2>
-  <table>
-    <tr><th>Setting</th><th>Accuracy</th></tr>
-    <tr><td>zero-shot</td><td>40%</td></tr>
-    <tr><td>few-shot</td><td>50%</td></tr>
-    <tr><td>few-shot, zero-shot routing forced</td><td>48% &rarr; gain kept = (48 &minus; 40) / (50 &minus; 40) = 80%</td></tr>
-    <tr><td>few-shot, zero-shot routing forced (alternative outcome)</td><td>36% &rarr; gain kept = (36 &minus; 40) / (50 &minus; 40) = &minus;40%</td></tr>
-    <tr><td>few-shot, random experts forced</td><td>25% (the floor)</td></tr>
+  <p>Zero-shot scores 40% and few-shot 50%, a 10-point gain. Three possible outcomes:</p>
+  <table class="ex">
+    <tr><th>Run (accuracy)</th><th>A</th><th>B</th><th>C</th></tr>
+    <tr><td>few-shot, zero-shot routing forced</td><td>48% &rarr; gain kept 80%</td><td>41% &rarr; gain kept 10%</td><td>36% &rarr; gain kept &minus;40%</td></tr>
+    <tr><td>zero-shot, few-shot routing forced</td><td>41% &rarr; gain added 10%</td><td>49% &rarr; gain added 90%</td><td>40% &rarr; gain added 0%</td></tr>
+    <tr><td>few-shot, matched-replay routing</td><td>49%</td><td>49%</td><td>38%</td></tr>
+    <tr><td>few-shot, random experts</td><td>25%</td><td>25%</td><td>25%</td></tr>
+    <tr><td><b>Reading</b></td>
+      <td>Routing at the question tokens is neither needed nor enough. Matched replay is near few-shot, so replay does little damage.</td>
+      <td>Routing carries the gain: removing it loses most of the gain, adding it restores most. Matched replay is fine.</td>
+      <td>Replay damage. Matched replay also falls 12 points, and gain kept is below zero-shot. This cannot be read as a routing result.</td></tr>
   </table>
-  <ul>
-    <li><b>48% against a 25% floor:</b> the replay is not just breaking the model, so the 80% is evidence that representation carries most of the gain.</li>
-    <li><b>36%, below the 40% zero-shot baseline:</b> removing routing should drop accuracy to 40% at worst, so the extra loss is replay damage. The gain kept is negative.</li>
-    <li><b>26% against the same floor:</b> forcing itself is causing the damage, and the low gain-kept fraction cannot be read as "routing carries the gain".</li>
-  </ul>
-  <p class="note">Limits: the checks are pass/fail or rough bounds, not statistical tests. Matched replay bounds damage only for the few-shot prompt, at a smaller mismatch than the real one. The random control uses the router's own mixing weights while the headline replay forces recorded weights, so it is a rough floor, not a size-matched comparison. It gives a reference for how much forcing alone can hurt; it does not remove the out-of-distribution concern.</p>
+  <p class="note">A supports H3 and H4, B contradicts both, C is uninterpretable until the damage is reduced. The random floor (25%) shows forcing can bite. Limits: the checks are pass/fail or rough bounds, not statistical tests. The graded anchors estimate damage by interpolation, and the random control is a rough floor, not a size-matched comparison.</p>
 </section>
 
 <!-- 8 Reproducibility -->
@@ -301,17 +359,16 @@
 
 <!-- 9 Status -->
 <section>
-  <span class="kicker">Progress</span>
+  <span class="kicker">Where things stand</span>
   <h2>Status</h2>
   <table>
     <tr><th>Phase</th><th>Description</th><th>Status</th></tr>
     <tr><td>0</td><td>Load OLMoE, score options, record routing</td><td><span class="tag todo">partial</span> recorder and scoring tested on a tiny MoE; <code>load_model</code> and the real-model check pending</td></tr>
-    <tr><td>1</td><td>Data and prompt conditions</td><td><span class="tag done">built</span> pilot, ladder and main prompt sets</td></tr>
+    <tr><td>1</td><td>Data and prompt conditions</td><td><span class="tag todo">partial</span> same-subject prompt sets built for four subjects (biology, chemistry, physics, computer science), with the irrelevant control matched to the same-subject block</td></tr>
     <tr><td>2</td><td>Pilot (H1, H2a, H2b)</td><td><span class="tag todo">ready</span> not yet run on OLMoE</td></tr>
-    <tr><td>3</td><td>Forcing, reverse check, sanity checks</td><td><span class="tag todo">ready</span> not yet run; figure script is a stub</td></tr>
+    <tr><td>3</td><td>Forcing, reverse check, sanity checks</td><td><span class="tag todo">partial</span> forcing, reverse check and identity check ready, not yet run; figure script is a stub. Matched replay, the graded self-perturbation anchors, example-token replay and the mismatch-size measurement are planned, not built</td></tr>
     <tr><td>4</td><td>Second model and exploratory extensions</td><td><span class="tag todo">not started</span></td></tr>
   </table>
-  <p class="note">No result from the real model exists. Nothing in this deck is a scientific finding.</p>
 </section>
 
 <!-- 10 Plan -->
@@ -320,8 +377,8 @@
   <h2>Phases and gates</h2>
   <div class="grid">
     <div class="card"><h3>1. Setup</h3><p>Write <code>load_model</code>, pin the model revision, verify layers, experts, top-k and router names by inspection, and run the smoke test.</p></div>
-    <div class="card"><h3>2. Pilot, then gate</h3><p>Run H1 and H2. If H1 fails for every pair, revisit pairs, shots or model. If H2a fails, there is no routing shift for replay to explain. If H2b fails, the shift is not toward useful routing, so read the forcing results with that in mind. H4 remains the causal test.</p></div>
-    <div class="card"><h3>3. Main experiment</h3><p>Forced routing, reverse check and sanity checks for every pair and direction. Done when both sanity checks pass and gain fractions with intervals exist.</p></div>
+    <div class="card"><h3>2. Pilot, then gate</h3><p>Run H1 and H2. If H1 fails for every subject, revisit subjects, shots or model. H2a compares only the size of the routing shift, not its direction. If H2a fails, the shift is not larger than for irrelevant examples, so check H2b before concluding anything: irrelevant examples could shift routing as much but in a worse direction. If H2b fails, the shift is not specific to the examples' content, so read the forcing results with that in mind. H4 remains the causal test.</p></div>
+    <div class="card"><h3>3. Main experiment</h3><p>Forced routing, reverse check and sanity checks for every subject. Also replay the example tokens (graded perturbations). Done when the identity check passes, the damage anchors have run, and gain fractions with intervals exist.</p></div>
     <div class="card"><h3>4. Extensions</h3><p>A second MoE model, plus the exploratory analyses on the next slide.</p></div>
   </div>
 </section>
@@ -330,34 +387,29 @@
 <section>
   <span class="kicker">Plan</span>
   <h2>Possible extensions</h2>
-  <p>Exploratory, with no pre-registered thresholds. Run only after the main experiment.</p>
   <div class="grid">
+    <div class="card"><h3>Second MoE model</h3>
+      <p>Repeat the main experiment on a different MoE architecture to test whether the split is specific to OLMoE.</p></div>
+    <div class="card"><h3>Cross-domain transfer</h3>
+      <p>Repeat with examples from a different subject, and plot the split against domain distance and transfer direction, using the pairs and distance ladder already built. No predicted trend. Underpowered: few pairs, a lexical distance measure, and direction confounded with target difficulty. Cross-domain gains may also be small or format-driven.</p></div>
     <div class="card"><h3>Layer-by-layer forcing</h3>
       <p>Replay routing at one layer or a window of layers instead of all of them, and sweep the layer. Shows where in the network the routing effect arises, and limits how much forced routing upstream alters the hidden state.</p></div>
     <div class="card"><h3>Hidden-state patching</h3>
       <p>Copy recorded target-token states from the other prompt at a chosen layer, with and without forced routing. Mostly informative as a layer sweep of where the gain becomes determined.</p></div>
-    <div class="card"><h3>Second MoE model</h3>
-      <p>Repeat the main experiment on a different MoE architecture to test whether the split is specific to OLMoE.</p></div>
-    <div class="card"><h3>Distance and direction</h3>
-      <p>Plot the split against domain distance and transfer direction, using the pairs and distance ladder already built. No predicted trend. Underpowered: few pairs, a lexical distance measure, and direction confounded with target difficulty.</p></div>
   </div>
 </section>
 
 <!-- 11 Risks -->
 <section>
   <span class="kicker">Risks</span>
-  <h2>Risks and open items</h2>
-  <div class="grid">
-    <div class="card"><h3>Threats</h3>
-      <ul><li>Forcing target tokens only still lets later layers and other positions respond.</li>
-      <li>Replayed routing may be out of distribution for the hidden states it meets.</li>
-      <li>Small per-pair question counts give wide intervals on a ratio.</li>
-      <li>One model may not generalize; Phase 4 adds a second.</li></ul></div>
-    <div class="card"><h3>Open items on our side</h3>
-      <ul><li>Numeric thresholds for "H1/H2a/H2b hold" and "large" or "small" fraction are <b>not yet pre-registered</b>; to be written before the main run.</li>
-      <li>Token-length confound for the irrelevant control in the forcing experiment.</li>
-      <li>Model revision still unpinned until first download.</li></ul></div>
-  </div>
+  <h2>Risks</h2>
+  <ul>
+    <li>Forcing target tokens only still lets later layers and other positions respond; example-token replay is planned to address this.</li>
+    <li>Replayed routing may be out of distribution for the hidden states it meets.</li>
+    <li>Small per-subject question counts give wide intervals on a ratio.</li>
+    <li>One model may not generalize; Phase 4 adds a second.</li>
+    <li>Few-shot prompts are longer than zero-shot ones, so part of a gain, or of a routing shift, may reflect length and not content. The length-matched irrelevant control addresses this in the pilot, and a forced irrelevant run (planned) extends it to the forcing runs.</li>
+  </ul>
 </section>
 
 <!-- 12 Asks -->
@@ -366,10 +418,11 @@
   <h2>Decisions needed</h2>
   <ul>
     <li><b>Compute:</b> access to a GPU node for the Phase 0 check, the pilot, then the main runs.</li>
-    <li><b>Thresholds:</b> agree numeric pre-registered criteria for H1, H2a, H2b and for "large" or "small" gain fractions.</li>
-    <li><b>Scope:</b> are three pairs plus the ladder the right size, and which second MoE model for Phase 4?</li>
-    <li><b>Framing:</b> is the routing-replay comparison to the merged-MoE paper enough of a contribution, or should one of the exploratory analyses (layer-wise, distance and direction) be developed further?</li>
-    <li><b>Timeline and venue:</b> to fill in together.</li>
+    <li><b>Scope:</b> which subjects, and how many? Which second MoE model for Phase 4?</li>
+    <li><b>Primary condition:</b> is same-subject few-shot the right primary condition, with cross-domain transfer as an extension?</li>
+    <li><b>Example-token replay:</b> Is it worth building equal-token-length example sets for matched replay?</li>
+    <li><b>Framing:</b> is the routing-replay comparison to the merged-MoE paper enough of a contribution, or should one of the exploratory analyses (layer-wise, cross-domain transfer) be developed further?</li>
+    <li><b>Timeline and venue</li>
   </ul>
 </section>
 

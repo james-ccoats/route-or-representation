@@ -1,0 +1,19 @@
+# Primary design (D15): same-subject few-shot. Each subject is both the example source
+# and the target; examples never include a scored question.
+dataset: cais/mmlu
+dataset_revision: c30699e8356da336a370243923dbaf21066bb9fe
+shot_split: dev
+extra_shot_splits: [validation]   # dev + validation pooled; test is evaluation-only
+eval_split: test
+run_both_directions: false
+
+subjects:
+  - college_biology
+  - college_chemistry
+  - college_physics
+  - college_computer_science
+
+# Pool for the length-matched irrelevant control; never a target subject.
+irrelevant_pool:
+  subjects: [high_school_world_history, philosophy]
+  split: test

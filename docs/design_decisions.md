@@ -100,7 +100,7 @@ power estimate from the pilot.
 
 ## D5. What counts as "irrelevant" examples
 
-**Status:** open
+**Status:** open (control now matched to the same-subject block, see D15)
 
 **Options:** MC questions from unrelated subjects (e.g. history); non-MC text of
 matched token length; shuffled-answer or shuffled-text versions of source
@@ -302,7 +302,7 @@ atomic whole-run output (loses everything on a preemption).
 
 ## D12. Which domain pairs, and the distance ladder
 
-**Status:** pilot pairs unchanged; ladder added (2026-11-09), open to revision after the pilot
+**Status:** pilot pairs unchanged; ladder added (2026-11-09); demoted to a Phase 4 extension by D15
 
 **Context:** the original three pairs (biology/medicine near, chemistry/physics medium,
 computer science/biology far) came from the initial scaffold with no recorded
@@ -474,3 +474,70 @@ conditions, and the forcing experiments 90 with two. Generated prompt files tota
 
 **Not done:** a hierarchical model across replicates and questions; a combined interval
 for question and draw variance; crossing k with the irrelevant-control seed.
+
+---
+
+## D15. Same-subject few-shot as the primary condition
+
+**Status:** decided 2026-11-12 (supersedes the cross-domain primary of D12; D12 is kept as the
+Phase 4 extension design).
+
+**Decision:** the primary condition is few-shot examples from the question's own subject.
+Cross-domain examples, domain distance and transfer direction move to an exploratory Phase 4
+extension with no hypothesis (the former H5).
+
+**Reason:** the project's question is routing versus representation. Cross-domain transfer
+adds a second question (does the split depend on distance?) that the measured distances
+cannot cleanly answer (D12: near is resolved, far is compressed), and it takes attention
+from the first.
+
+**Consequences for the design:**
+- **Hypotheses.** H1 is same-subject few-shot over zero-shot. H2a is the size of the routing
+  shift beyond noise and the irrelevant control. H2b is new: the shift is content-driven
+  (routing under one same-subject example set is closer to routing under another set than to
+  zero-shot or irrelevant routing). H3 and H4 are unchanged in form.
+- **Irrelevant control** is matched on k and token length to the same-subject block.
+- **Irrelevant-prompt forcing (planned).** The same routing-removed and routing-added runs on
+  the irrelevant prompt, so gain kept and gain added on generic context can be compared with
+  the relevant prompt's. If equal, the split is a generic-context effect; if they differ, the
+  difference is the content-specific part. It extends the length-matched control, which
+  otherwise exists only in the pilot, to the forcing runs.
+- **Example-token replay (planned, main design).** The zero-shot prompt has no example
+  tokens, so there is no zero-shot routing to copy onto them. Instead the few-shot example
+  tokens' routing is perturbed (next-best swap, random experts in k of 16 layers, routing
+  from an equal-token-length example set, random experts in all layers as the floor) and the
+  surviving gain is read against the damage anchors. It tests whether example-token routing
+  is needed, not whether it is removed.
+- **Damage anchors.** Replay mixes the routing's value with mismatch damage. Anchors:
+  identity check (tolerance 1e-3), matched replay (few-shot only), graded self-perturbations
+  (either prompt), the random-expert floor, and a below-baseline rule (a negative gain kept
+  signals damage). A high gain kept is robust to damage; a low gain kept or added needs the
+  anchors, since damage also lowers gain added.
+- **What can be claimed.** If H3 and H4 hold: routing at the tested positions is neither
+  necessary nor sufficient. "Attributable to representation" follows by elimination under
+  the project's definition (representation = the same experts processing shifted hidden
+  states). The design does not isolate which non-routing mechanism carries it.
+- **Length confound.** The few-shot prompt is longer than zero-shot, so part of a gain or
+  routing shift may reflect length and generic context. The irrelevant control and the
+  planned forced irrelevant run address it.
+
+**Code status (updated 2026-11-15):** implemented: `configs/pairs/mmlu_subjects.yaml`
+(`subjects:` instead of `pairs:`), `build_subject_prompts` (same-subject examples, irrelevant
+control matched to the same-subject block via `match_to`), runs named `<subject>_r<r>_k<k>`,
+`PILOT_CONTRASTS` led by same-subject contrasts (cross-domain rows kept for the extension),
+and stages `pilot` / `main` (the `ladder` stages run only when named). Prompt sets rebuilt:
+`data/prompts/pilot` (zero-shot, same-subject, irrelevant) and `data/prompts/main`
+(zero-shot, same-subject), 60 files each.
+
+**Subjects chosen:** college_biology, college_chemistry, college_physics,
+college_computer_science, 100 test questions each. Usable same-subject example pools are 21,
+13, 8 (after dropping 6 questions also in `test`) and 16, so chemistry and physics example
+sets overlap across replicates (see D14). Controls matched to the same-subject block within
+4 tokens (mean 0.2).
+
+**Still to build:** an H2b measure, forcing of the irrelevant prompt, example-token replay
+(`spec_from_record` currently needs a one-to-one position pairing, which example tokens
+lack), matched replay and graded self-perturbation anchors, the mismatch-size measurement.
+
+**Not done:** numeric thresholds for "a large fraction" kept and "a small fraction" added;
+the stats plan and compute plan; pinning the model revision.

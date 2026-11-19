@@ -36,25 +36,23 @@ def test_main_stage_builds_before_forcing_and_reverse_check() -> None:
 
 def test_all_stops_before_the_main_experiments_by_default() -> None:
     names = _names(plan_stages("all"))
-    assert names == _names(plan_stages("pilot")) + _names(plan_stages("ladder"))
+    assert names == _names(plan_stages("pilot"))
     assert not any(n.startswith(("03_", "04_")) for n in names)
 
 
-def test_all_with_continue_runs_pilot_stages_first_then_main() -> None:
+def test_all_with_continue_runs_pilot_then_main() -> None:
     names = _names(plan_stages("all", continue_past_gates=True))
-    assert names == (
-        _names(plan_stages("pilot"))
-        + _names(plan_stages("ladder"))
-        + _names(plan_stages("main"))
-        + _names(plan_stages("ladder-forcing"))
-    )
+    assert names == _names(plan_stages("pilot")) + _names(plan_stages("main"))
 
 
-def test_ladder_forcing_comes_after_the_ladder_build() -> None:
-    names = _names(plan_stages("all", continue_past_gates=True))
-    assert names.index("01_build_prompts.py:ladder_pilot") < names.index(
-        "03_force_routing.py:ladder_force_routing"
-    )
+def test_cross_domain_extension_stages_run_only_when_named() -> None:
+    everything = _names(plan_stages("all", continue_past_gates=True))
+    assert not any("ladder" in n for n in everything)
+    assert any("ladder" in n for n in _names(plan_stages("ladder")))
+
+
+def test_ladder_forcing_stage_needs_no_second_build() -> None:
+    assert not any(n.startswith("01_") for n in _names(plan_stages("ladder-forcing")))
 
 
 def test_unknown_stage_is_rejected() -> None:

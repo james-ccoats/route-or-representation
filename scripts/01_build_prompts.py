@@ -15,7 +15,12 @@ from rr.config import (
     parse_config_arg,
 )
 from rr.data import load_mmlu_subject, load_shot_pool
-from rr.prompt_build import build_direction_prompts, without_overlap, write_runs
+from rr.prompt_build import (
+    build_direction_prompts,
+    build_subject_prompts,
+    without_overlap,
+    write_runs,
+)
 
 
 def main() -> None:
@@ -37,6 +42,30 @@ def main() -> None:
         for q in load_mmlu_subject(s, pairs.irrelevant_split, *dataset_args)
     ]
     runs = {}
+    for subject in pairs.subjects:
+        eval_pool = load_mmlu_subject(subject, pairs.eval_split, *dataset_args)
+        full_pool = load_shot_pool(subject, pairs.shot_splits, *dataset_args)
+        shot_pool = without_overlap(full_pool, eval_pool)
+        if len(shot_pool) < len(full_pool):
+            print(
+                f"{subject}: dropped {len(full_pool) - len(shot_pool)} of {len(full_pool)} "
+                f"shot questions that also appear in {pairs.eval_split}"
+            )
+        built = build_subject_prompts(
+            subject=subject,
+            shot_pool=shot_pool,
+            eval_pool=eval_pool,
+            irrelevant_pool=irrelevant_pool,
+            tokenizer=tokenizer,
+            conditions=cfg.conditions,
+            num_shots=cfg.num_shots,
+            shot_counts=cfg.shot_counts,
+            num_replicates=cfg.num_replicates,
+            num_questions=cfg.num_questions_per_target,
+            seed=cfg.seed,
+        )
+        runs.update(built)
+        print(f"{subject}: {len(built)} runs ({len(shot_pool)} usable shot questions)")
     for direction, source, target in pairs.directions():
         eval_pool = load_mmlu_subject(target, pairs.eval_split, *dataset_args)
         full_target_pool = load_shot_pool(target, pairs.shot_splits, *dataset_args)

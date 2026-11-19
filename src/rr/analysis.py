@@ -183,22 +183,29 @@ METRICS: Mapping[str, Callable[[ResultRecord], float | None]] = {
 }
 
 # (metric, condition_a, condition_b): reports metric(a) - metric(b).
-# Pilot question (a): do examples help?  Pilot question (b): do relevant examples
-# move routing more? Jaccard is an overlap, so LOWER overlap means MORE routing
-# change; "irrelevant - cross_domain" > 0 means cross-domain examples shifted routing more.
+# Pilot gate (D15), primary = same-subject few-shot. H1: do same-subject examples help
+# (accuracy, correct log-prob vs zero-shot; and vs the length-matched irrelevant control)?
+# H2a: do they shift routing more than irrelevant ones? Jaccard is an overlap, so LOWER
+# overlap means MORE routing change; "irrelevant - same_domain" > 0 means same-subject
+# examples shifted routing more. Contrasts whose conditions were not run are skipped, so
+# the cross-domain rows (Phase 4 extension) only appear for cross-domain prompt sets.
 PILOT_CONTRASTS: tuple[tuple[str, PromptCondition, PromptCondition], ...] = (
-    ("accuracy", PromptCondition.CROSS_DOMAIN, PromptCondition.ZERO_SHOT),
     ("accuracy", PromptCondition.SAME_DOMAIN, PromptCondition.ZERO_SHOT),
-    ("accuracy", PromptCondition.CROSS_DOMAIN, PromptCondition.IRRELEVANT),
-    ("correct_logprob", PromptCondition.CROSS_DOMAIN, PromptCondition.ZERO_SHOT),
-    ("jaccard", PromptCondition.IRRELEVANT, PromptCondition.CROSS_DOMAIN),
+    ("accuracy", PromptCondition.SAME_DOMAIN, PromptCondition.IRRELEVANT),
+    ("correct_logprob", PromptCondition.SAME_DOMAIN, PromptCondition.ZERO_SHOT),
     ("jaccard", PromptCondition.IRRELEVANT, PromptCondition.SAME_DOMAIN),
     # Hidden-state shift (only when recorded). Larger shift = more change, so these read
     # "relevant minus irrelevant": > 0 means relevant examples moved the state more than
     # length-matched irrelevant ones. Visible-share excess > 0 means the shift points into
     # the part of the state space the router can see more than a random direction would.
-    ("hidden_shift", PromptCondition.CROSS_DOMAIN, PromptCondition.IRRELEVANT),
     ("hidden_shift", PromptCondition.SAME_DOMAIN, PromptCondition.IRRELEVANT),
+    ("visible_share_excess", PromptCondition.SAME_DOMAIN, PromptCondition.IRRELEVANT),
+    # Cross-domain extension (Phase 4).
+    ("accuracy", PromptCondition.CROSS_DOMAIN, PromptCondition.ZERO_SHOT),
+    ("accuracy", PromptCondition.CROSS_DOMAIN, PromptCondition.IRRELEVANT),
+    ("correct_logprob", PromptCondition.CROSS_DOMAIN, PromptCondition.ZERO_SHOT),
+    ("jaccard", PromptCondition.IRRELEVANT, PromptCondition.CROSS_DOMAIN),
+    ("hidden_shift", PromptCondition.CROSS_DOMAIN, PromptCondition.IRRELEVANT),
     ("visible_share_excess", PromptCondition.CROSS_DOMAIN, PromptCondition.IRRELEVANT),
 )
 

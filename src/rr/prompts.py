@@ -253,6 +253,7 @@ def build_condition_prompts(
     irrelevant_examples: Sequence[MCQuestion],
     conditions: Sequence[PromptCondition],
     tokenizer: PreTrainedTokenizerBase,
+    match_to: Sequence[MCQuestion] | None = None,
 ) -> dict[PromptCondition, BuiltPrompt]:
     """Build the requested condition prompts for one target question.
 
@@ -265,6 +266,9 @@ def build_condition_prompts(
             :func:`select_irrelevant_examples`.
         conditions: Which conditions to build.
         tokenizer: Used to record each prompt's example token count.
+        match_to: The example block the irrelevant control is matched to; defaults to
+            ``source_examples`` (cross-domain design). Same-subject builds pass the
+            same-subject examples (D15).
 
     Returns:
         Mapping from condition to prompt.
@@ -273,12 +277,11 @@ def build_condition_prompts(
         ValueError: If the target appears in any example set (leakage), or the
             irrelevant example count differs from the source example count.
     """
-    if PromptCondition.IRRELEVANT in conditions and len(irrelevant_examples) != len(
-        source_examples
-    ):
+    matched = source_examples if match_to is None else match_to
+    if PromptCondition.IRRELEVANT in conditions and len(irrelevant_examples) != len(matched):
         raise ValueError(
             f"irrelevant example count ({len(irrelevant_examples)}) must equal "
-            f"the source example count ({len(source_examples)})"
+            f"the matched example count ({len(matched)})"
         )
     for name, examples in (
         ("source", source_examples),

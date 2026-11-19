@@ -1,9 +1,10 @@
 """Run the experiment scripts in order, one stage at a time.
 
-Stages: pilot, ladder, main, ladder-forcing, or all. ``all`` runs the pilot and ladder
-stages and then stops: check the pilot results against the Phase 2 criteria in
-docs/research_plan.md, then continue with ``--stage main`` (and ``ladder-forcing``), or
-rerun ``--stage all --continue-past-gates``. Every script is resumable, so rerunning a
+Stages: pilot, main, or all (same-subject design, D15). ``all`` runs the pilot and then
+stops: check the pilot results against the Phase 2 criteria in docs/research_plan.md, then
+continue with ``--stage main``, or rerun ``--stage all --continue-past-gates``. The Phase 4
+cross-domain extension stages ``ladder`` and ``ladder-forcing`` run only when named.
+Every script is resumable, so rerunning a
 stage after a crash continues where it stopped.
 
 Usage: uv run python scripts/run_all.py --stage pilot [--dry-run]

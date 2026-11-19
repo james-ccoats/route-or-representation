@@ -114,6 +114,62 @@ def build_direction_prompts(
     return runs
 
 
+def build_subject_prompts(
+    *,
+    subject: str,
+    shot_pool: Sequence[MCQuestion],
+    eval_pool: Sequence[MCQuestion],
+    irrelevant_pool: Sequence[MCQuestion],
+    tokenizer: PreTrainedTokenizerBase,
+    conditions: Sequence[PromptCondition],
+    num_shots: int,
+    shot_counts: Sequence[int],
+    num_replicates: int,
+    num_questions: int,
+    seed: int,
+) -> dict[str, list[BuiltPrompt]]:
+    """Build every run's prompts for one subject, same-subject few-shot (D15).
+
+    Examples come from the subject itself (``shot_pool``, already free of eval
+    questions); the irrelevant control is matched in count and token length to the
+    same-subject block of each (replicate, k). Evaluated questions never include a
+    question used as an example in any replicate.
+
+    Returns:
+        ``{run stem: prompts}``; the stem is ``<subject>_r<replicate>_k<k>``.
+
+    Raises:
+        ValueError: If a shot count is out of range, a pool is too small, or the
+            irrelevant control cannot be matched.
+    """
+    if not shot_counts or any(not 1 <= k <= num_shots for k in shot_counts):
+        raise ValueError(f"shot_counts must lie in [1, num_shots={num_shots}], got {shot_counts}")
+    sets = draw_shot_sets(shot_pool, num_shots, num_replicates, seed)
+    used_as_shots = [q for shots in sets for q in shots]
+    eval_questions = sample_questions(eval_pool, num_questions, seed, exclude=used_as_shots)
+    needs_control = PromptCondition.IRRELEVANT in conditions
+
+    runs: dict[str, list[BuiltPrompt]] = {}
+    for replicate in range(num_replicates):
+        for k in shot_counts:
+            same = sets[replicate][:k]
+            irrelevant = (
+                select_irrelevant_examples(
+                    irrelevant_pool,
+                    k,
+                    count_example_tokens(same, tokenizer),
+                    tokenizer,
+                    seed + IRRELEVANT_SEED_STRIDE * replicate + k,
+                )
+                if needs_control
+                else []
+            )
+            runs[run_stem(subject, replicate, k)] = _prompts_for(
+                eval_questions, [], same, irrelevant, conditions, tokenizer, match_to=same
+            )
+    return runs
+
+
 def _prompts_for(
     questions: Sequence[MCQuestion],
     cross: Sequence[MCQuestion],
@@ -121,6 +177,7 @@ def _prompts_for(
     irrelevant: Sequence[MCQuestion],
     conditions: Sequence[PromptCondition],
     tokenizer: PreTrainedTokenizerBase,
+    match_to: Sequence[MCQuestion] | None = None,
 ) -> list[BuiltPrompt]:
     prompts: list[BuiltPrompt] = []
     for question in questions:
@@ -132,6 +189,7 @@ def _prompts_for(
                 irrelevant_examples=irrelevant,
                 conditions=conditions,
                 tokenizer=tokenizer,
+                match_to=match_to,
             ).values()
         )
         verify_target_tokens(built, tokenizer)

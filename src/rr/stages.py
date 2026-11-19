@@ -6,7 +6,7 @@ the first failure. The scripts are resumable, so rerunning a stage after a crash
 preemption continues where it stopped.
 
 Methodological note: the pilot is a decision gate (research_plan.md, Phase 2). If
-cross-domain few-shot never beats zero-shot, or relevant examples do not shift routing
+same-subject few-shot never beats zero-shot, or relevant examples do not shift routing
 more than irrelevant ones, the pairs, shots or model should be revisited before the
 main experiment. ``all`` therefore stops after the pilot stages unless the caller
 explicitly passes ``continue_past_gates``.
@@ -46,6 +46,7 @@ STAGES: dict[str, tuple[Step, ...]] = {
         _step("01_build_prompts.py", EXPERIMENTS / "pilot.yaml"),
         _step("02_run_pilot.py", EXPERIMENTS / "pilot.yaml"),
     ),
+    # Phase 4 extension (D12, demoted by D15): cross-domain distance ladder.
     "ladder": (
         _step("06_measure_distance.py", PAIRS / "mmlu_ladder.yaml"),
         _step("01_build_prompts.py", EXPERIMENTS / "ladder_pilot.yaml"),
@@ -63,8 +64,9 @@ STAGES: dict[str, tuple[Step, ...]] = {
     ),
 }
 
-PRE_GATE_STAGES = ("pilot", "ladder")
-POST_GATE_STAGES = ("main", "ladder-forcing")
+PRE_GATE_STAGES = ("pilot",)
+POST_GATE_STAGES = ("main",)
+EXTENSION_STAGES = ("ladder", "ladder-forcing")  # run only when named
 ALL = "all"
 
 

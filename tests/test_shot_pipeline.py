@@ -96,3 +96,37 @@ def test_forcing_over_the_shot_grid_summarises_fractions_per_k(tmp_path, model, 
     report = summarize_force_results(records, n_boot=50)
     assert "k=1" in report and "k=3" in report
     assert "identity ok in 6/6 runs" in report
+
+
+def test_subject_prompts_use_same_subject_examples_and_a_matched_control(tmp_path) -> None:
+    from rr.prompt_build import build_subject_prompts
+    from rr.prompts import load_prompts
+
+    tokenizer = TinyVocabTokenizer()
+    runs = build_subject_prompts(
+        subject="bio",
+        shot_pool=[make_question("bio", i) for i in range(12)],
+        eval_pool=[make_question("bioeval", i) for i in range(10)],
+        irrelevant_pool=[make_question("hist", i, words=4) for i in range(40)],
+        tokenizer=tokenizer,
+        conditions=(
+            PromptCondition.ZERO_SHOT,
+            PromptCondition.SAME_DOMAIN,
+            PromptCondition.IRRELEVANT,
+        ),
+        num_shots=3,
+        shot_counts=(1, 3),
+        num_replicates=2,
+        num_questions=3,
+        seed=0,
+    )
+    assert sorted(runs) == ["bio_r0_k1", "bio_r0_k3", "bio_r1_k1", "bio_r1_k3"]
+    for prompts in runs.values():
+        by_condition = {p.condition: p for p in prompts[:3]}
+        same = by_condition[PromptCondition.SAME_DOMAIN]
+        control = by_condition[PromptCondition.IRRELEVANT]
+        assert same.num_examples == control.num_examples
+        assert "hist" not in same.text
+        assert abs(same.example_tokens - control.example_tokens) <= 16
+    write_runs(runs, tmp_path)
+    assert load_prompts(tmp_path / "bio_r0_k3.jsonl")

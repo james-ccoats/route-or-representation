@@ -1,9 +1,9 @@
 """Phase 2 pilot: score every condition and measure routing shift vs. zero-shot.
 
-Role in the project: for each target question, run its zero-shot, cross-domain,
-same-domain and irrelevant prompts with the router recorded, then compare the
-top-k routing on the *target-question tokens* of each prompt against the
-zero-shot prompt's. This answers (a) does cross-domain few-shot beat zero-shot
+Role in the project: for each target question, run its zero-shot, same-subject
+(and, for the Phase 4 extension, cross-domain) and irrelevant prompts with the router
+recorded, then compare the top-k routing on the *target-question tokens* of each prompt against the
+zero-shot prompt's. This answers (a) does same-subject few-shot beat zero-shot
 and (b) do relevant examples shift routing more than irrelevant ones.
 
 Methodological notes:

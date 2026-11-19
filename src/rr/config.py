@@ -88,6 +88,7 @@ class PairsConfig:
     irrelevant_split: str = DEFAULT_IRRELEVANT_SPLIT
     extra_shot_splits: tuple[str, ...] = ()
     dataset_revision: str | None = None
+    subjects: tuple[str, ...] = ()
 
     @property
     def shot_splits(self) -> tuple[str, ...]:
@@ -241,9 +242,12 @@ def load_pairs_config(path: str | Path) -> PairsConfig:
     """
     where = str(path)
     data = _read_yaml(path)
-    raw_pairs = _get(data, "pairs", list, where)
-    if not raw_pairs:
-        raise ConfigError(f"{where}: 'pairs' must not be empty")
+    subjects = _parse_subjects(data, where)
+    raw_pairs = data.get("pairs", []) if subjects else _get(data, "pairs", list, where)
+    if not isinstance(raw_pairs, list) or (not raw_pairs and not subjects):
+        raise ConfigError(f"{where}: needs a non-empty 'pairs' or 'subjects' list")
+    if raw_pairs and subjects:
+        raise ConfigError(f"{where}: use either 'subjects' (same-subject) or 'pairs', not both")
     pairs: list[DomainPair] = []
     for i, raw in enumerate(raw_pairs):
         pair_where = f"{where} pairs[{i}]"
@@ -270,7 +274,7 @@ def load_pairs_config(path: str | Path) -> PairsConfig:
         raise ConfigError(f"{where}: 'irrelevant_pool.split' must be a string")
     if not isinstance(irrelevant, list) or not all(isinstance(s, str) for s in irrelevant):
         raise ConfigError(f"{where}: 'irrelevant_pool.subjects' must be a list of strings")
-    pair_domains = {d for p in pairs for d in (p.domain_a, p.domain_b)}
+    pair_domains = {d for p in pairs for d in (p.domain_a, p.domain_b)} | set(subjects)
     overlap = sorted(pair_domains.intersection(irrelevant))
     if overlap:
         raise ConfigError(
@@ -294,7 +298,17 @@ def load_pairs_config(path: str | Path) -> PairsConfig:
         irrelevant_split=irrelevant_split,
         extra_shot_splits=extra_shot_splits,
         dataset_revision=_parse_dataset_revision(data, where),
+        subjects=subjects,
     )
+
+
+def _parse_subjects(data: Mapping[str, Any], where: str) -> tuple[str, ...]:
+    subjects = data.get("subjects", [])
+    if not isinstance(subjects, list) or not all(isinstance(s, str) and s for s in subjects):
+        raise ConfigError(f"{where}: 'subjects' must be a list of subject names")
+    if len(set(subjects)) != len(subjects):
+        raise ConfigError(f"{where}: 'subjects' has duplicates: {subjects}")
+    return tuple(subjects)
 
 
 def _parse_dataset_revision(data: Mapping[str, Any], where: str) -> str | None:
